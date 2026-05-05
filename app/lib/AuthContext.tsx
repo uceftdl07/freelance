@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         console.log("[AUTH] Login response status:", res.status);
-        console.log("[AUTH] Login response headers:", Object.fromEntries(res.headers.entries()));
+        console.log("[AUTH] Login response headers:", [...res.headers.entries()]);
 
         const json = await res.json();
         console.log("[AUTH] Login response body:", json);
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         console.log("[AUTH] Register response status:", res.status);
-        console.log("[AUTH] Register response headers:", Object.fromEntries(res.headers.entries()));
+        console.log("[AUTH] Register response headers:", [...res.headers.entries()]);
 
         const json = await res.json();
         console.log("[AUTH] Register response body:", json);

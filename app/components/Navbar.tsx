@@ -26,31 +26,12 @@ export default function Navbar() {
   const [showCreateOffer, setShowCreateOffer] = useState(false);
   const [showUploadCV, setShowUploadCV] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>("");
+  const [notifOpen, setNotifOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
-    const apiUrl = getApiBaseUrl();
-    console.log("[DEBUG] API Base URL:", apiUrl);
-    setDebugInfo(`API: ${apiUrl}`);
-
-    // Test backend connectivity
-    const testBackend = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/health`);
-        const data = await response.json();
-        console.log("[DEBUG] Backend health check:", data);
-        setDebugInfo(prev => `${prev} | Status: ${response.status}`);
-      } catch (error) {
-        console.error("[DEBUG] Backend health check failed:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        setDebugInfo(prev => `${prev} | Error: ${errorMessage}`);
-      }
-    };
-
-    testBackend();
   }, []);
 
   const isLinkActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -86,13 +67,6 @@ export default function Navbar() {
 
             {/* Desktop Center Links */}
             <div className="hidden lg:flex items-center gap-6 ml-8 h-full">
-              {/* Debug Info - Only show in development */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-gray-400 font-mono">
-                  {debugInfo}
-                </div>
-              )}
-
               {navLinks.map((link) => {
                 const active = isLinkActive(link.href);
                 return (

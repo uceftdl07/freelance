@@ -31,6 +31,8 @@ app.use(
       if (allowedOrigins.includes(origin)) return callback(null, true);
       // Allow any Vercel preview/production domain
       if (/\.vercel\.app$/.test(origin)) return callback(null, true);
+      // Allow Render preview/production apps if front-end is deployed there
+      if (/\.render\.com$/.test(origin)) return callback(null, true);
       // Block everything else
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },

@@ -1,8 +1,15 @@
 import dotenv from "dotenv";
 import path from "path";
 
-// Load .env from backend root
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+const envPath = path.resolve(__dirname, "../../.env");
+const productionEnvPath = path.resolve(__dirname, "../../.env.production");
+
+// Load environment variables from .env and .env.production as fallback.
+// In production, actual environment variables (e.g. on Render) take precedence.
+dotenv.config({ path: envPath });
+if (process.env.NODE_ENV === "production") {
+  dotenv.config({ path: productionEnvPath });
+}
 
 export const env = {
   // Database

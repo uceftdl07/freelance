@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
+import { getApiBaseUrl } from "../../../lib/api";
 import {
   HiDocumentArrowUp, HiUser, HiBriefcase, HiClock, HiAcademicCap,
   HiWrenchScrewdriver, HiCheckCircle, HiChevronLeft, HiChevronRight,
@@ -31,7 +32,7 @@ const emptyForm: FormData = {
   availability: "DISPONIBLE", tjm: 0, location: "", linkedIn: "", portfolioUrl: "",
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_BASE = getApiBaseUrl();
 
 export default function ProfileBuilder() {
   const { token } = useAuth();

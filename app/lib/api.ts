@@ -4,6 +4,10 @@ export function getApiBaseUrl(): string {
   }
 
   if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "www.freelanceit.ma" || hostname === "freelanceit.ma") {
+      return "https://freel-backend.onrender.com/api";
+    }
     return `${window.location.origin}/api`;
   }
 

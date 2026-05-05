@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
+import { getApiBaseUrl } from "../../lib/api";
 import LoginModal from "../../components/LoginModal";
 import RegisterModal from "../../components/RegisterModal";
 import Navbar from "../../components/Navbar";
@@ -84,7 +85,7 @@ function ApplyModal({
   const [error, setError] = useState<string | null>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const API_BASE = getApiBaseUrl();
 
   const handleSubmit = async () => {
     if (!token) {

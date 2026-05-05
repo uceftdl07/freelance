@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getApiBaseUrl } from "../../../lib/api";
 import {
   HiBriefcase,
   HiMagnifyingGlass,
@@ -59,7 +60,7 @@ export default function OffresPublicPage() {
       if (contractType) params.set("contractType", contractType);
       if (remoteOnly) params.set("remote", "true");
 
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+      const API_BASE = getApiBaseUrl();
       const res = await fetch(`${API_BASE}/jobs?${params.toString()}`);
       const json = await res.json();
 

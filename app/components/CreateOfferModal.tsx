@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
+import { getApiBaseUrl } from "../lib/api";
 import {
   HiXMark,
   HiBriefcase,
@@ -50,7 +51,7 @@ export default function CreateOfferModal({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  const API_BASE = getApiBaseUrl();
 
   const update = (key: string, value: string) =>
     setForm((p) => ({ ...p, [key]: value }));

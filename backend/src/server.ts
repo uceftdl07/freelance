@@ -20,6 +20,8 @@ const allowedOrigins = [
   env.FRONTEND_URL,
   "http://localhost:3000",
   "http://localhost:3001",
+  "https://www.freelanceit.ma",
+  "https://freelanceit.ma",
 ];
 
 app.use(

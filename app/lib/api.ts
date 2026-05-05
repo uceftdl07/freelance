@@ -13,11 +13,7 @@ export function getApiBaseUrl(): string {
       return "http://localhost:5000/api";
     }
 
-    if (hostname.endsWith("freelanceit.ma")) {
-      return "https://freel-backend.onrender.com/api";
-    }
-
-    return `${window.location.origin}/api`;
+    return "https://freel-backend.onrender.com/api";
   }
 
   return "http://localhost:5000/api";

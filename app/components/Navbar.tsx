@@ -45,7 +45,8 @@ export default function Navbar() {
         setDebugInfo(prev => `${prev} | Status: ${response.status}`);
       } catch (error) {
         console.error("[DEBUG] Backend health check failed:", error);
-        setDebugInfo(prev => `${prev} | Error: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setDebugInfo(prev => `${prev} | Error: ${errorMessage}`);
       }
     };
 

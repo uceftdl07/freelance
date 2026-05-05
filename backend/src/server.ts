@@ -122,6 +122,8 @@ app.listen(env.PORT, () => {
 ║   Port:        ${String(env.PORT).padEnd(28)}║
 ║   Environment: ${env.NODE_ENV.padEnd(28)}║
 ║   Frontend:    ${env.FRONTEND_URL.padEnd(28)}║
+║   Google ID:   ${env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set'.padEnd(28)}║
+║   Google Secret: ${env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set'.padEnd(28)}║
 ║                                              ║
 ║   Routes:                                    ║
 ║   POST /api/auth/register                    ║

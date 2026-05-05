@@ -87,13 +87,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
+      console.log("[AUTH] Login attempt for:", email);
+      console.log("[AUTH] API_BASE:", API_BASE);
+
       try {
         const res = await fetch(`${API_BASE}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
+
+        console.log("[AUTH] Login response status:", res.status);
+        console.log("[AUTH] Login response headers:", Object.fromEntries(res.headers.entries()));
+
         const json = await res.json();
+        console.log("[AUTH] Login response body:", json);
 
         if (json.success && json.data?.token) {
           saveAuth(json.data.token, json.data.user);
@@ -105,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           message: json.message || "Erreur de connexion.",
           code: json.code,
         };
-      } catch {
+      } catch (error) {
+        console.error("[AUTH] Login fetch error:", error);
         return {
           success: false,
           message: "Impossible de contacter le serveur.",
@@ -119,19 +128,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (data: RegisterData): Promise<AuthResult> => {
+      console.log("[AUTH] Register attempt for:", data.email);
+      console.log("[AUTH] API_BASE:", API_BASE);
+
       try {
         const res = await fetch(`${API_BASE}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
+
+        console.log("[AUTH] Register response status:", res.status);
+        console.log("[AUTH] Register response headers:", Object.fromEntries(res.headers.entries()));
+
         const json = await res.json();
+        console.log("[AUTH] Register response body:", json);
 
         return {
           success: json.success,
           message: json.message || "Erreur lors de l'inscription.",
         };
-      } catch {
+      } catch (error) {
+        console.error("[AUTH] Register fetch error:", error);
         return {
           success: false,
           message: "Impossible de contacter le serveur.",
@@ -145,13 +163,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const googleLogin = useCallback(
     async (code: string, role?: string): Promise<AuthResult> => {
+      console.log("[AUTH] Google login attempt with code");
+      console.log("[AUTH] API_BASE:", API_BASE);
+
       try {
         const res = await fetch(`${API_BASE}/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, role }),
         });
+
+        console.log("[AUTH] Google login response status:", res.status);
+        console.log("[AUTH] Google login response headers:", Object.fromEntries(res.headers.entries()));
+
         const json = await res.json();
+        console.log("[AUTH] Google login response body:", json);
 
         if (json.success && json.data?.token) {
           saveAuth(json.data.token, json.data.user);
@@ -162,7 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           success: false,
           message: json.message || "Erreur de connexion Google.",
         };
-      } catch {
+      } catch (error) {
+        console.error("[AUTH] Google login fetch error:", error);
         return {
           success: false,
           message: "Impossible de contacter le serveur.",

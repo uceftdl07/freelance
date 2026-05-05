@@ -55,6 +55,10 @@ const loginSchema = z.object({
 // ─── Register ─────────────────────────────────
 
 export async function register(req: Request, res: Response): Promise<void> {
+  console.log("[AUTH] Register request received");
+  console.log("[AUTH] Request body:", req.body);
+  console.log("[AUTH] Request headers:", req.headers);
+
   try {
     // Validate input
     const validation = registerSchema.safeParse(req.body);
@@ -210,6 +214,10 @@ export async function verifyEmail(
 // ─── Login ────────────────────────────────────
 
 export async function login(req: Request, res: Response): Promise<void> {
+  console.log("[AUTH] Login request received");
+  console.log("[AUTH] Request body:", req.body);
+  console.log("[AUTH] Request headers:", req.headers);
+
   try {
     // Validate input
     const validation = loginSchema.safeParse(req.body);
@@ -301,6 +309,10 @@ export async function googleLogin(
   req: Request,
   res: Response
 ): Promise<void> {
+  console.log("[AUTH] Google login request received");
+  console.log("[AUTH] Request body:", req.body);
+  console.log("[AUTH] Request headers:", req.headers);
+
   try {
     const { code, role } = req.body;
 
@@ -313,6 +325,10 @@ export async function googleLogin(
     }
 
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      console.log("[AUTH] Google OAuth not configured");
+      console.log("[AUTH] GOOGLE_CLIENT_ID:", env.GOOGLE_CLIENT_ID ? "Set" : "Not set");
+      console.log("[AUTH] GOOGLE_CLIENT_SECRET:", env.GOOGLE_CLIENT_SECRET ? "Set" : "Not set");
+
       res.status(500).json({
         success: false,
         message: "Google OAuth n'est pas configuré sur ce serveur.",

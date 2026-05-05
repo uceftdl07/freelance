@@ -1,21 +1,27 @@
 export function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
+    console.log("[API] Using NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
+    console.log("[API] Hostname detected:", hostname);
+
     if (
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
       hostname === "0.0.0.0"
     ) {
+      console.log("[API] Using localhost backend");
       return "http://localhost:5000/api";
     }
 
+    console.log("[API] Using production backend");
     return "https://freel-backend.onrender.com/api";
   }
 
+  console.log("[API] Using default localhost backend");
   return "http://localhost:5000/api";
 }
 

@@ -50,13 +50,19 @@ const API_BASE = getApiBaseUrl();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Retries a fetch up to `retries` extra times on network error (server cold start)
+// Each attempt has a 15s timeout so the spinner never hangs indefinitely
 async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      return await fetch(url, options);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return res;
     } catch (err) {
+      clearTimeout(timer);
       if (attempt === retries) throw err;
-      await sleep(5000);
+      await sleep(3000);
     }
   }
   throw new Error("unreachable");

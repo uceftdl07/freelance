@@ -1,14 +1,12 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import path from "path";
 import pdfParse from "pdf-parse";
 import { supabase } from "../utils/supabase";
+import { prisma } from "../utils/prisma";
 
 // pdf-parse CJS/ESM compat
 const pdf = (pdfParse as any).default ?? pdfParse;
-
-const prisma = new PrismaClient();
 
 // ─── Multer Config (memory storage for cloud uploads) ─
 
@@ -378,7 +376,7 @@ export async function saveParsedProfile(
         lastName: lastName || undefined,
         title: title || undefined,
         bio: bio || undefined,
-        skills: skills || undefined,
+        skills: skills ? JSON.stringify(Array.isArray(skills) ? skills : []) : undefined,
         yearsOfExperience: yearsOfExperience ?? undefined,
         availability: availability || undefined,
         portfolioUrl: portfolioUrl || undefined,
@@ -393,7 +391,7 @@ export async function saveParsedProfile(
         lastName: lastName || "",
         title,
         bio,
-        skills: skills || [],
+        skills: JSON.stringify(Array.isArray(skills) ? skills : []),
         yearsOfExperience,
         availability: availability || "DISPONIBLE",
         portfolioUrl,

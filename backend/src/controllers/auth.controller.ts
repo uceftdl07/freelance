@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
@@ -7,8 +6,7 @@ import { OAuth2Client } from "google-auth-library";
 import { signToken } from "../utils/jwt";
 import { sendVerificationEmail } from "../utils/email";
 import { env } from "../config/env";
-
-const prisma = new PrismaClient();
+import { prisma } from "../utils/prisma";
 const googleClient = new OAuth2Client(
   env.GOOGLE_CLIENT_ID,
   env.GOOGLE_CLIENT_SECRET,

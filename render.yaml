@@ -56,10 +56,10 @@ services:
         sync: false  # Set to your Vercel deployment URL
 
       - key: GOOGLE_CLIENT_ID
-        sync: false
+        sync: false  # Google OAuth client ID (set in Render Dashboard)
 
       - key: GOOGLE_CLIENT_SECRET
-        sync: false
+        sync: false  # Google OAuth client secret (set in Render Dashboard)
 
       - key: SMTP_HOST
         sync: false  # e.g. smtp.gmail.com or smtp.resend.com

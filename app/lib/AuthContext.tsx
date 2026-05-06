@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load stored auth on mount
+  // Load stored auth on mount + pre-warm Render backend (free tier sleeps after 15 min)
   useEffect(() => {
     try {
       const storedToken = localStorage.getItem("token");
@@ -68,11 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(JSON.parse(storedUser));
       }
     } catch {
-      // Invalid stored data, clear it
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     }
     setLoading(false);
+    // Fire-and-forget health ping so the backend is warm before the user submits a form
+    fetch(`${API_BASE}/health`).catch(() => {});
   }, []);
 
   // Persist auth state
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[AUTH] Login fetch error:", error);
         return {
           success: false,
-          message: "Impossible de contacter le serveur.",
+          message: "Le serveur démarre, veuillez réessayer dans quelques secondes.",
         };
       }
     },
@@ -152,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[AUTH] Register fetch error:", error);
         return {
           success: false,
-          message: "Impossible de contacter le serveur.",
+          message: "Le serveur démarre, veuillez réessayer dans quelques secondes.",
         };
       }
     },
@@ -192,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[AUTH] Google login fetch error:", error);
         return {
           success: false,
-          message: "Impossible de contacter le serveur.",
+          message: "Le serveur démarre, veuillez réessayer dans quelques secondes.",
         };
       }
     },

@@ -18,7 +18,7 @@ export function getApiBaseUrl(): string {
     }
 
     console.log("[API] Using production backend");
-    return "https://freel-backend.onrender.com/api";
+    return "https://freel-backend-v9sk.onrender.com/api";
   }
 
   console.log("[API] Using default localhost backend");

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import WelcomeModal from "./WelcomeModal";
+import { useAuth } from "../lib/AuthContext";
 import {
   HiHome,
   HiDocumentText,
@@ -66,6 +67,26 @@ export default function DashboardLayout({
   const [showWelcome, setShowWelcome] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { user, loading, logout } = useAuth();
+
+  // Auth protection: redirect to home if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/");
+    }
+  }, [loading, user, router]);
+
+  // Role-based routing: prevent candidat from accessing recruteur routes and vice versa
+  useEffect(() => {
+    if (!loading && user) {
+      if (pathname.startsWith("/dashboard/recruteur") && user.role !== "RECRUTEUR") {
+        router.replace("/dashboard/candidat");
+      }
+      if (pathname.startsWith("/dashboard/candidat") && user.role !== "CANDIDAT") {
+        router.replace("/dashboard/recruteur");
+      }
+    }
+  }, [loading, user, pathname, router]);
 
   // Show welcome modal if user hasn't completed onboarding
   useEffect(() => {
@@ -74,17 +95,19 @@ export default function DashboardLayout({
   }, []);
 
   const handleWelcomeSave = async (data: { civility: string; firstName: string; lastName: string; pseudo: string }) => {
-    // In production: POST to /api/profile/me
     console.log("[Onboarding]", data);
     localStorage.setItem("freelanceit_onboarded", "true");
     setShowWelcome(false);
   };
 
   const handleWelcomeLogout = () => {
-    localStorage.removeItem("freelanceit_token");
+    logout();
     localStorage.removeItem("freelanceit_onboarded");
     router.push("/");
   };
+
+  // Don't render dashboard while checking auth
+  if (loading || !user) return null;
 
   // Determine which sidebar to show based on path
   const isRecruteur = pathname.startsWith("/dashboard/recruteur");
@@ -191,13 +214,13 @@ export default function DashboardLayout({
 
         {/* Logout */}
         <div className="px-3 pb-4 border-t border-white/5 pt-3">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+          <button
+            onClick={handleWelcomeLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all cursor-pointer"
           >
             <HiArrowRightOnRectangle className="w-5 h-5" />
             Déconnexion
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -263,7 +286,7 @@ export default function DashboardLayout({
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white transition-transform hover:scale-105"
                 style={{ backgroundColor: "#00b8d9" }}
               >
-                Y
+                {user.email.substring(0, 2).toUpperCase()}
               </button>
 
               {dropdownOpen && (

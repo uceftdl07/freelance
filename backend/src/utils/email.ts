@@ -114,7 +114,7 @@ export async function sendVerificationEmail(
   `;
 
   const info = await transport.sendMail({
-    from: '"FreelanceIT" <noreply@freelanceit.fr>',
+    from: '"FreelanceIT" <noreply@freelanceit.ma>',
     to,
     subject: "Vérifiez votre email — FreelanceIT",
     html,

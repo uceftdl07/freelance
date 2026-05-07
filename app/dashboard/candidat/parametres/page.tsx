@@ -221,10 +221,15 @@ export default function ParametresPage() {
   const [appearanceLoading, setAppearanceLoading] = useState(false);
 
   // Toast state
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: "success" | "warning" } | null>(null);
 
   const showToast = (message: string) => {
-    setToast(message);
+    setToast({ message, kind: "success" });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const showWarningToast = (message: string) => {
+    setToast({ message, kind: "warning" });
     setTimeout(() => setToast(null), 3000);
   };
 
@@ -270,28 +275,42 @@ export default function ParametresPage() {
     }
   };
 
+  const syncSettingsToServer = async (next: Settings): Promise<boolean> => {
+    try {
+      const res = await apiRequest("/profile/settings", {
+        method: "PUT",
+        body: JSON.stringify(next),
+      });
+      return Boolean(res.success);
+    } catch {
+      return false;
+    }
+  };
+
   const handleSaveNotifications = async () => {
     setNotifLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     persistSettings(settings);
-    await apiRequest("/profile/settings", {
-      method: "PUT",
-      body: JSON.stringify(settings),
-    });
+    const synced = await syncSettingsToServer(settings);
     setNotifLoading(false);
-    showToast("Préférences de notifications enregistrées !");
+    if (synced) {
+      showToast("Préférences de notifications enregistrées !");
+    } else {
+      showWarningToast("Préférences enregistrées localement (sync serveur indisponible).");
+    }
   };
 
   const handleSaveVisibility = async () => {
     setVisibilityLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     persistSettings(settings);
-    await apiRequest("/profile/settings", {
-      method: "PUT",
-      body: JSON.stringify(settings),
-    });
+    const synced = await syncSettingsToServer(settings);
     setVisibilityLoading(false);
-    showToast("Visibilité du profil mise à jour !");
+    if (synced) {
+      showToast("Visibilité du profil mise à jour !");
+    } else {
+      showWarningToast("Visibilité enregistrée localement (sync serveur indisponible).");
+    }
   };
 
   const handleChangePassword = async () => {
@@ -315,23 +334,35 @@ export default function ParametresPage() {
     }
 
     setPasswordLoading(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1000));
+    const res = await apiRequest("/auth/change-password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: passwords.current,
+        newPassword: passwords.new,
+      }),
+    });
     setPasswordLoading(false);
-    setPasswords({ current: "", new: "", confirm: "" });
-    showToast("Mot de passe modifié avec succès !");
+
+    if (res.success) {
+      setPasswords({ current: "", new: "", confirm: "" });
+      showToast("Mot de passe modifié avec succès !");
+      return;
+    }
+
+    setPasswordError(res.message || "Impossible de modifier le mot de passe.");
   };
 
   const handleSaveAppearance = async () => {
     setAppearanceLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     persistSettings(settings);
-    await apiRequest("/profile/settings", {
-      method: "PUT",
-      body: JSON.stringify(settings),
-    });
+    const synced = await syncSettingsToServer(settings);
     setAppearanceLoading(false);
-    showToast("Préférences d'apparence enregistrées !");
+    if (synced) {
+      showToast("Préférences d'apparence enregistrées !");
+    } else {
+      showWarningToast("Préférences d'apparence enregistrées localement (sync serveur indisponible).");
+    }
   };
 
   // Password strength
@@ -693,12 +724,18 @@ export default function ParametresPage() {
         <div
           className="flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold text-white"
           style={{
-            background: "linear-gradient(135deg, #10b981, #059669)",
-            boxShadow: "0 10px 40px rgba(16,185,129,0.3)",
+            background:
+              toast?.kind === "warning"
+                ? "linear-gradient(135deg, #b45309, #92400e)"
+                : "linear-gradient(135deg, #10b981, #059669)",
+            boxShadow:
+              toast?.kind === "warning"
+                ? "0 10px 40px rgba(180,83,9,0.3)"
+                : "0 10px 40px rgba(16,185,129,0.3)",
           }}
         >
           <HiCheckCircle className="w-5 h-5 flex-shrink-0" />
-          {toast}
+          {toast?.message}
         </div>
       </div>
     </div>

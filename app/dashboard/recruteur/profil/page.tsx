@@ -12,7 +12,7 @@ import {
 } from "react-icons/hi2";
 
 export default function RecruteurProfilPage() {
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState<{ message: string; kind: "success" | "warning" } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -58,9 +58,11 @@ export default function RecruteurProfilPage() {
     }
 
     if (res.success) {
-      setToast(true);
-      setTimeout(() => setToast(false), 3000);
+      setToast({ message: "Modifications enregistrées avec succès.", kind: "success" });
+    } else {
+      setToast({ message: "Modifications enregistrées localement (sync serveur indisponible).", kind: "warning" });
     }
+    setTimeout(() => setToast(null), 3000);
 
     setSaving(false);
   };
@@ -130,9 +132,14 @@ export default function RecruteurProfilPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-6 right-6 z-[100] bg-[#0a1628] text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-bold flex items-center gap-2 animate-in slide-in-from-top-4 fade-in">
-          <HiOutlineCheckCircle className="w-5 h-5 text-[#00b8d9]" />
-          Modifications enregistrées avec succès
+        <div
+          className="fixed top-6 right-6 z-[100] text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-bold flex items-center gap-2 animate-in slide-in-from-top-4 fade-in"
+          style={{
+            background: toast.kind === "success" ? "#0a1628" : "#7c2d12",
+          }}
+        >
+          <HiOutlineCheckCircle className="w-5 h-5" style={{ color: toast.kind === "success" ? "#00b8d9" : "#f59e0b" }} />
+          {toast.message}
         </div>
       )}
 

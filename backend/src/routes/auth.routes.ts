@@ -5,7 +5,9 @@ import {
   verifyEmail,
   googleLogin,
   resendVerification,
+  changePassword,
 } from "../controllers/auth.controller";
+import { authMiddleware } from "../middleware/auth";
 
 const router = Router();
 
@@ -48,5 +50,13 @@ router.post("/google", googleLogin);
  * @body    { email }
  */
 router.post("/resend-verification", resendVerification);
+
+/**
+ * @route   PUT /api/auth/change-password
+ * @desc    Change current authenticated user's password
+ * @access  Private
+ * @body    { currentPassword, newPassword }
+ */
+router.put("/change-password", authMiddleware, changePassword);
 
 export default router;

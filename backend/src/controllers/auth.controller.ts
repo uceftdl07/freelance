@@ -52,6 +52,17 @@ const loginSchema = z.object({
   password: z.string().min(1, "Le mot de passe est requis."),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Le mot de passe actuel est requis."),
+  newPassword: z
+    .string()
+    .min(8, "Le nouveau mot de passe doit contenir au moins 8 caractères.")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      "Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre."
+    ),
+});
+
 // ─── Register ─────────────────────────────────
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -498,3 +509,66 @@ export async function resendVerification(
     });
   }
 }
+
+// ─── Change Password ───────────────────────────
+
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const validation = changePasswordSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { currentPassword, newPassword } = validation.data;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ success: false, message: "Utilisateur introuvable." });
+      return;
+    }
+
+    if (!user.password) {
+      res.status(400).json({
+        success: false,
+        message: "Ce compte utilise une connexion sociale. Utilisez 'mot de passe oublié'.",
+      });
+      return;
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      res.status(401).json({ success: false, message: "Mot de passe actuel incorrect." });
+      return;
+    }
+
+    const sameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (sameAsOld) {
+      res.status(400).json({
+        success: false,
+        message: "Le nouveau mot de passe doit être différent de l'ancien.",
+      });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ success: true, message: "Mot de passe modifié avec succès." });
+  } catch (error) {
+    console.error("[AUTH] ChangePassword error:", error);
+    res.status(500).json({ success: false, message: "Erreur interne du serveur." });
+  }
+}
+

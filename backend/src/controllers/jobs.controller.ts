@@ -1,5 +1,65 @@
 import { Request, Response } from "express";
-import { prisma } from "../utils/prisma";
+import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
+
+const prisma = new PrismaClient();
+
+const contractTypes = ["FREELANCE", "CDI", "CDD", "STAGE"] as const;
+const statuses = ["ACTIVE", "CLOSED", "DRAFT"] as const;
+
+const createJobOfferSchema = z.object({
+  title: z.string().trim().min(2),
+  description: z.string().trim().min(10),
+  location: z.string().trim().min(2),
+  company: z.string().trim().optional(),
+  remote: z.boolean().optional(),
+  contractType: z.enum(contractTypes).optional(),
+  tjm: z.union([z.number().int().nonnegative(), z.string().trim()]).optional().nullable(),
+  salaryMin: z.union([z.number().int().nonnegative(), z.string().trim()]).optional().nullable(),
+  salaryMax: z.union([z.number().int().nonnegative(), z.string().trim()]).optional().nullable(),
+  tags: z.union([z.array(z.string()), z.string()]).optional(),
+  status: z.enum(statuses).optional(),
+});
+
+const updateJobOfferSchema = createJobOfferSchema.partial();
+
+function parseOptionalInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.trunc(value) : null;
+  }
+  if (typeof value === "string") {
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}
+
+function normalizeTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((t): t is string => typeof t === "string").map((t) => t.trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t): t is string => typeof t === "string").map((t) => t.trim()).filter(Boolean);
+      }
+    } catch {
+      return value.split(",").map((t) => t.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function parseStoredTags(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * POST /api/jobs
@@ -14,10 +74,21 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
       where: { userId },
     });
 
+    const validation = createJobOfferSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
     const {
       title,
       description,
       location,
+      company: inputCompany,
       remote = false,
       contractType = "FREELANCE",
       tjm,
@@ -25,18 +96,9 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
       salaryMax,
       tags = [],
       status = "ACTIVE",
-    } = req.body;
+    } = validation.data;
 
-    // Validation
-    if (!title || !description || !location) {
-      res.status(400).json({
-        success: false,
-        message: "Titre, description et localisation sont requis.",
-      });
-      return;
-    }
-
-    const company = req.body.company || recruiterProfile?.company || "Entreprise";
+    const company = inputCompany || recruiterProfile?.company || "Entreprise";
 
     const jobOffer = await prisma.jobOffer.create({
       data: {
@@ -47,10 +109,10 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
         location,
         remote: Boolean(remote),
         contractType,
-        tjm: tjm ? parseInt(tjm, 10) : null,
-        salaryMin: salaryMin ? parseInt(salaryMin, 10) : null,
-        salaryMax: salaryMax ? parseInt(salaryMax, 10) : null,
-        tags: JSON.stringify(tags),
+        tjm: parseOptionalInt(tjm),
+        salaryMin: parseOptionalInt(salaryMin),
+        salaryMax: parseOptionalInt(salaryMax),
+        tags: JSON.stringify(normalizeTags(tags)),
         status,
       },
       include: {
@@ -65,7 +127,7 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
       message: "Offre créée avec succès.",
       data: {
         ...jobOffer,
-        tags: JSON.parse(jobOffer.tags),
+        tags: parseStoredTags(jobOffer.tags),
       },
     });
   } catch (error) {
@@ -121,7 +183,7 @@ export async function getJobOffers(req: Request, res: Response): Promise<void> {
     // Post-process: apply text search and tags filter in JS (SQLite limitation)
     let results = jobOffers.map((job) => ({
       ...job,
-      tags: JSON.parse(job.tags),
+      tags: parseStoredTags(job.tags),
     }));
 
     // Filter by search keyword
@@ -177,7 +239,7 @@ export async function getMyJobOffers(req: Request, res: Response): Promise<void>
 
     const results = jobOffers.map((job) => ({
       ...job,
-      tags: JSON.parse(job.tags),
+      tags: parseStoredTags(job.tags),
     }));
 
     res.json({
@@ -216,7 +278,17 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { title, description, location, remote, contractType, tjm, salaryMin, salaryMax, tags, status } = req.body;
+    const validation = updateJobOfferSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { title, description, location, remote, contractType, tjm, salaryMin, salaryMax, tags, status } = validation.data;
 
     const updated = await prisma.jobOffer.update({
       where: { id: jobId },
@@ -226,10 +298,10 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
         ...(location !== undefined && { location }),
         ...(remote !== undefined && { remote: Boolean(remote) }),
         ...(contractType !== undefined && { contractType }),
-        ...(tjm !== undefined && { tjm: tjm ? parseInt(tjm, 10) : null }),
-        ...(salaryMin !== undefined && { salaryMin: salaryMin ? parseInt(salaryMin, 10) : null }),
-        ...(salaryMax !== undefined && { salaryMax: salaryMax ? parseInt(salaryMax, 10) : null }),
-        ...(tags !== undefined && { tags: JSON.stringify(tags) }),
+        ...(tjm !== undefined && { tjm: parseOptionalInt(tjm) }),
+        ...(salaryMin !== undefined && { salaryMin: parseOptionalInt(salaryMin) }),
+        ...(salaryMax !== undefined && { salaryMax: parseOptionalInt(salaryMax) }),
+        ...(tags !== undefined && { tags: JSON.stringify(normalizeTags(tags)) }),
         ...(status !== undefined && { status }),
       },
     });
@@ -237,7 +309,7 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
     res.json({
       success: true,
       message: "Offre mise à jour.",
-      data: { ...updated, tags: JSON.parse(updated.tags) },
+      data: { ...updated, tags: parseStoredTags(updated.tags) },
     });
   } catch (error) {
     console.error("[Jobs] Update error:", error);

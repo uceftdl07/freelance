@@ -43,30 +43,7 @@ interface RegisterData {
   company?: string;
 }
 
-import { getApiBaseUrl } from "./api";
-
-const API_BASE = getApiBaseUrl();
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Retries a fetch up to `retries` extra times on network error (server cold start)
-// Each attempt has a 15s timeout so the spinner never hangs indefinitely
-async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    try {
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timer);
-      return res;
-    } catch (err) {
-      clearTimeout(timer);
-      if (attempt === retries) throw err;
-      await sleep(3000);
-    }
-  }
-  throw new Error("unreachable");
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 // ─── Context ──────────────────────────────────
 
@@ -79,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load stored auth on mount + pre-warm Render backend (free tier sleeps after 15 min)
+  // Load stored auth on mount
   useEffect(() => {
     try {
       const storedToken = localStorage.getItem("token");
@@ -89,12 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(JSON.parse(storedUser));
       }
     } catch {
+      // Invalid stored data, clear it
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     }
     setLoading(false);
-    // Fire-and-forget health ping so the backend is warm before the user submits a form
-    fetch(`${API_BASE}/health`).catch(() => {});
   }, []);
 
   // Persist auth state
@@ -109,20 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
-      console.log("[AUTH] Login attempt for:", email);
-      console.log("[AUTH] API_BASE:", API_BASE);
-
       try {
-        const res = await fetchWithRetry(`${API_BASE}/auth/login`, {
+        const res = await fetch(`${API_BASE}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-
-        console.log("[AUTH] Login response status:", res.status);
-
         const json = await res.json();
-        console.log("[AUTH] Login response body:", json);
 
         if (json.success && json.data?.token) {
           saveAuth(json.data.token, json.data.user);
@@ -134,11 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           message: json.message || "Erreur de connexion.",
           code: json.code,
         };
-      } catch (error) {
-        console.error("[AUTH] Login fetch error:", error);
+      } catch {
         return {
           success: false,
-          message: "Serveur inaccessible. Vérifiez que le backend Render est en ligne.",
+          message: "Impossible de contacter le serveur.",
         };
       }
     },
@@ -149,30 +117,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (data: RegisterData): Promise<AuthResult> => {
-      console.log("[AUTH] Register attempt for:", data.email);
-      console.log("[AUTH] API_BASE:", API_BASE);
-
       try {
-        const res = await fetchWithRetry(`${API_BASE}/auth/register`, {
+        const res = await fetch(`${API_BASE}/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
-
-        console.log("[AUTH] Register response status:", res.status);
-
         const json = await res.json();
-        console.log("[AUTH] Register response body:", json);
 
         return {
           success: json.success,
           message: json.message || "Erreur lors de l'inscription.",
         };
-      } catch (error) {
-        console.error("[AUTH] Register fetch error:", error);
+      } catch {
         return {
           success: false,
-          message: "Serveur inaccessible après 3 tentatives. Vérifiez que le backend Render est en ligne.",
+          message: "Impossible de contacter le serveur.",
         };
       }
     },
@@ -183,20 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const googleLogin = useCallback(
     async (code: string, role?: string): Promise<AuthResult> => {
-      console.log("[AUTH] Google login attempt with code");
-      console.log("[AUTH] API_BASE:", API_BASE);
-
       try {
-        const res = await fetchWithRetry(`${API_BASE}/auth/google`, {
+        const res = await fetch(`${API_BASE}/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code, role }),
         });
-
-        console.log("[AUTH] Google login response status:", res.status);
-
         const json = await res.json();
-        console.log("[AUTH] Google login response body:", json);
 
         if (json.success && json.data?.token) {
           saveAuth(json.data.token, json.data.user);
@@ -207,11 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           success: false,
           message: json.message || "Erreur de connexion Google.",
         };
-      } catch (error) {
-        console.error("[AUTH] Google login fetch error:", error);
+      } catch {
         return {
           success: false,
-          message: "Serveur inaccessible. Vérifiez que le backend Render est en ligne.",
+          message: "Impossible de contacter le serveur.",
         };
       }
     },

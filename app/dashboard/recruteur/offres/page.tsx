@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { apiRequest } from "../../../lib/api";
 import {
   HiPlus,
   HiOutlineUsers,
@@ -21,6 +22,7 @@ interface Offer {
   title: string;
   type: string;
   status: string;
+  apiStatus: "ACTIVE" | "CLOSED" | "DRAFT";
   candidates: number;
   location: string;
   tjm: string;
@@ -30,12 +32,25 @@ interface Offer {
   typeColor: string;
 }
 
+interface ApiJobOffer {
+  id: string;
+  title: string;
+  contractType: "FREELANCE" | "CDI" | "CDD";
+  status: "ACTIVE" | "CLOSED" | "DRAFT";
+  location: string;
+  tjm: number | null;
+  createdAt: string;
+  description: string;
+  tags: string[];
+}
+
 const INITIAL_OFFERS: Offer[] = [
   {
     id: "1",
     title: "Ingénieur Cloud AWS Senior",
     type: "Freelance",
     status: "Publiée",
+    apiStatus: "ACTIVE",
     candidates: 12,
     location: "Paris • Hybride",
     tjm: "650€/jour",
@@ -49,6 +64,7 @@ const INITIAL_OFFERS: Offer[] = [
     title: "Développeur Fullstack React / Node",
     type: "CDI",
     status: "Publiée",
+    apiStatus: "ACTIVE",
     candidates: 45,
     location: "Lyon • Sur site",
     tjm: "45k€ - 55k€",
@@ -62,6 +78,7 @@ const INITIAL_OFFERS: Offer[] = [
     title: "Tech Lead Data Engineer",
     type: "Freelance",
     status: "Brouillon",
+    apiStatus: "DRAFT",
     candidates: 0,
     location: "100% Remote",
     tjm: "750€/jour",
@@ -75,6 +92,7 @@ const INITIAL_OFFERS: Offer[] = [
     title: "Product Manager B2B",
     type: "CDD",
     status: "Suspendue",
+    apiStatus: "CLOSED",
     candidates: 8,
     location: "Nantes",
     tjm: "50k€",
@@ -98,12 +116,54 @@ function getStatusStyle(status: string) {
   }
 }
 
+function toDisplayStatus(status: ApiJobOffer["status"]): Offer["status"] {
+  if (status === "ACTIVE") return "Publiée";
+  if (status === "DRAFT") return "Brouillon";
+  return "Suspendue";
+}
+
+function toApiType(type: string): ApiJobOffer["contractType"] {
+  if (type.toUpperCase() === "CDI") return "CDI";
+  if (type.toUpperCase() === "CDD") return "CDD";
+  return "FREELANCE";
+}
+
+function toDisplayType(type: ApiJobOffer["contractType"]): string {
+  return type === "FREELANCE" ? "Freelance" : type;
+}
+
+function getTypeColor(type: string): string {
+  if (type === "Freelance") return "bg-[#00b8d9]/10 text-[#00b8d9]";
+  if (type === "CDI") return "bg-indigo-100 text-indigo-700";
+  return "bg-purple-100 text-purple-700";
+}
+
+function mapApiToOffer(job: ApiJobOffer): Offer {
+  const type = toDisplayType(job.contractType);
+  return {
+    id: job.id,
+    title: job.title,
+    type,
+    status: toDisplayStatus(job.status),
+    apiStatus: job.status,
+    candidates: 0,
+    location: job.location,
+    tjm: job.tjm != null ? `${job.tjm}€/jour` : "À définir",
+    date: new Date(job.createdAt).toLocaleDateString("fr-FR"),
+    description: job.description,
+    skills: Array.isArray(job.tags) ? job.tags : [],
+    typeColor: getTypeColor(type),
+  };
+}
+
 export default function RecruteurOffresPage() {
-  const [offers, setOffers] = useState<Offer[]>(INITIAL_OFFERS);
+  const [offers, setOffers] = useState<Offer[]>([]);
   const [activeTab, setActiveTab] = useState("Toutes");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
@@ -117,6 +177,23 @@ export default function RecruteurOffresPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  const fetchMyOffers = useCallback(async () => {
+    setLoading(true);
+    const res = await apiRequest<{ jobs: ApiJobOffer[] }>("/jobs/mine");
+
+    if (res.success && res.data?.jobs) {
+      setOffers(res.data.jobs.map(mapApiToOffer));
+    } else {
+      setOffers(INITIAL_OFFERS);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void fetchMyOffers();
+  }, [fetchMyOffers]);
 
   const openCreateModal = () => {
     setEditingOffer(null);
@@ -140,54 +217,74 @@ export default function RecruteurOffresPage() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formTitle.trim()) return;
+    setSaving(true);
+
+    const payload = {
+      title: formTitle,
+      description: formDesc,
+      contractType: toApiType(formType),
+      location: formLocation,
+      tjm: formTjm ? parseInt(formTjm.replace(/\D/g, ""), 10) || null : null,
+      tags: formSkills.split(",").map((s) => s.trim()).filter(Boolean),
+      status: editingOffer ? editingOffer.apiStatus : "DRAFT",
+    };
+
     if (editingOffer) {
-      setOffers((prev) =>
-        prev.map((o) =>
-          o.id === editingOffer.id
-            ? { ...o, title: formTitle, description: formDesc, type: formType, location: formLocation, tjm: formTjm, skills: formSkills.split(",").map((s) => s.trim()).filter(Boolean) }
-            : o
-        )
-      );
-      showToast("✅ Offre mise à jour avec succès");
+      const res = await apiRequest(`/jobs/${editingOffer.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      showToast(res.success ? "✅ Offre mise à jour avec succès" : "Erreur lors de la mise à jour de l'offre.");
     } else {
-      const newOffer: Offer = {
-        id: String(Date.now()),
-        title: formTitle,
-        type: formType,
-        status: "Brouillon",
-        candidates: 0,
-        location: formLocation || "Non spécifiée",
-        tjm: formTjm || "À définir",
-        date: "À l'instant",
-        description: formDesc,
-        skills: formSkills.split(",").map((s) => s.trim()).filter(Boolean),
-        typeColor: formType === "Freelance" ? "bg-[#00b8d9]/10 text-[#00b8d9]" : formType === "CDI" ? "bg-indigo-100 text-indigo-700" : "bg-purple-100 text-purple-700",
-      };
-      setOffers((prev) => [newOffer, ...prev]);
-      showToast("🎉 Nouvelle offre créée avec succès");
+      const res = await apiRequest("/jobs", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      showToast(res.success ? "🎉 Nouvelle offre créée avec succès" : "Erreur lors de la création de l'offre.");
     }
+
+    await fetchMyOffers();
+    setSaving(false);
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setOffers((prev) => prev.filter((o) => o.id !== id));
-    showToast("🗑️ Offre supprimée");
+  const handleDelete = async (id: string) => {
+    const confirmed = window.confirm("Supprimer cette offre ? Cette action est irreversible.");
+    if (!confirmed) return;
+
+    const res = await apiRequest(`/jobs/${id}`, { method: "DELETE" });
+    if (res.success) {
+      showToast("🗑️ Offre supprimée");
+      await fetchMyOffers();
+    } else {
+      showToast("Erreur lors de la suppression de l'offre.");
+    }
   };
 
-  const handleToggleSuspend = (id: string) => {
-    setOffers((prev) =>
-      prev.map((o) => {
-        if (o.id !== id) return o;
-        if (o.status === "Suspendue") {
-          showToast("▶️ Offre réactivée");
-          return { ...o, status: "Publiée" };
-        }
-        showToast("⏸️ Offre suspendue");
-        return { ...o, status: "Suspendue" };
-      })
+  const handleToggleSuspend = async (id: string) => {
+    const target = offers.find((offer) => offer.id === id);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      target.status === "Suspendue"
+        ? "Reactiver cette offre ?"
+        : "Suspendre cette offre ?"
     );
+    if (!confirmed) return;
+
+    const nextStatus = target.apiStatus === "CLOSED" ? "ACTIVE" : "CLOSED";
+    const res = await apiRequest(`/jobs/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (res.success) {
+      showToast(nextStatus === "ACTIVE" ? "▶️ Offre réactivée" : "⏸️ Offre suspendue");
+      await fetchMyOffers();
+    } else {
+      showToast("Erreur lors de la mise à jour du statut.");
+    }
   };
 
   // Tabs counts
@@ -259,7 +356,11 @@ export default function RecruteurOffresPage() {
       </div>
 
       {/* Offers List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-16">
+          <p className="text-gray-500 font-medium">Chargement des offres...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
             <HiOutlineDocumentText className="w-8 h-8 text-gray-400" />
@@ -325,6 +426,7 @@ export default function RecruteurOffresPage() {
                   onClick={() => openEditModal(offer)}
                   className="p-2 text-gray-400 hover:text-[#00b8d9] hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
                   title="Éditer"
+                  aria-label={`Editer l'offre ${offer.title}`}
                 >
                   <HiOutlinePencilSquare className="w-5 h-5" />
                 </button>
@@ -336,6 +438,7 @@ export default function RecruteurOffresPage() {
                       : "text-gray-400 hover:text-amber-500 hover:bg-amber-50"
                   }`}
                   title={offer.status === "Suspendue" ? "Réactiver" : "Suspendre"}
+                  aria-label={offer.status === "Suspendue" ? `Reactiver l'offre ${offer.title}` : `Suspendre l'offre ${offer.title}`}
                 >
                   {offer.status === "Suspendue" ? (
                     <HiOutlinePlay className="w-5 h-5" />
@@ -347,6 +450,7 @@ export default function RecruteurOffresPage() {
                   onClick={() => handleDelete(offer.id)}
                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                   title="Supprimer"
+                  aria-label={`Supprimer l'offre ${offer.title}`}
                 >
                   <HiOutlineTrash className="w-5 h-5" />
                 </button>
@@ -365,7 +469,7 @@ export default function RecruteurOffresPage() {
               <h2 className="text-lg font-bold text-gray-900">
                 {editingOffer ? "Modifier l'offre" : "Publier une nouvelle offre"}
               </h2>
-              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
+              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer" aria-label="Fermer la fenetre">
                 <HiXMark className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -442,11 +546,11 @@ export default function RecruteurOffresPage() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!formTitle.trim()}
+                disabled={!formTitle.trim() || saving}
                 className="px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-lg transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 style={{ backgroundColor: "#00b8d9", boxShadow: "0 4px 14px rgba(0,184,217,0.3)" }}
               >
-                {editingOffer ? "Enregistrer" : "Publier l'offre"}
+                {saving ? "Enregistrement..." : editingOffer ? "Enregistrer" : "Publier l'offre"}
               </button>
             </div>
           </div>

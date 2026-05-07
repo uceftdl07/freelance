@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { env } from "./config/env";
 import authRoutes from "./routes/auth.routes";
 import profileRoutes from "./routes/profile.routes";
@@ -13,6 +15,8 @@ import jobsRoutes from "./routes/jobs.routes";
 
 const app = express();
 
+app.set("trust proxy", env.TRUST_PROXY);
+
 // ─── Middleware ────────────────────────────────
 
 // CORS — dynamic whitelist for cloud deployment
@@ -20,21 +24,45 @@ const allowedOrigins = [
   env.FRONTEND_URL,
   "http://localhost:3000",
   "http://localhost:3001",
-  "https://www.freelanceit.ma",
-  "https://freelanceit.ma",
-];
+].filter(Boolean);
+
+function isAllowedOrigin(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+
+  try {
+    const parsed = new URL(origin);
+    // Allow Vercel preview and production domains.
+    if (parsed.hostname.endsWith(".vercel.app")) return true;
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+const apiRateLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Trop de requêtes. Veuillez réessayer dans quelques minutes.",
+  },
+});
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 app.use(
   cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      // Allow configured origins
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Allow any Vercel preview/production domain
-      if (/\.vercel\.app$/.test(origin)) return callback(null, true);
-      // Allow Render preview/production apps if front-end is deployed there
-      if (/\.render\.com$/.test(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       // Block everything else
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
@@ -49,6 +77,15 @@ app.use(express.json({ limit: "10mb" }));
 
 // Parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
+
+// Apply a global API rate limiter, excluding health checks.
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+  apiRateLimiter(req, res, next);
+});
 
 // ─── Routes ───────────────────────────────────
 
@@ -122,8 +159,6 @@ app.listen(env.PORT, () => {
 ║   Port:        ${String(env.PORT).padEnd(28)}║
 ║   Environment: ${env.NODE_ENV.padEnd(28)}║
 ║   Frontend:    ${env.FRONTEND_URL.padEnd(28)}║
-║   Google ID:   ${env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set'.padEnd(28)}║
-║   Google Secret: ${env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set'.padEnd(28)}║
 ║                                              ║
 ║   Routes:                                    ║
 ║   POST /api/auth/register                    ║

@@ -3,7 +3,8 @@ import { authMiddleware, requireRole } from "../middleware/auth";
 import { matchCandidatesForJob, quickMatch } from "../controllers/matching.controller";
 import {
   sendMessage, getMyMessages,
-  saveCandidate, getNotifications, markNotificationsRead,
+  saveCandidate, removeSavedCandidate, getSavedCandidates,
+  getNotifications, markNotificationsRead,
 } from "../controllers/messaging.controller";
 
 const router = Router();
@@ -28,6 +29,12 @@ router.get("/messages", authMiddleware, getMyMessages);
 
 /** Save a candidate profile */
 router.post("/save-candidate", authMiddleware, requireRole("RECRUTEUR"), saveCandidate);
+
+/** Remove a saved candidate profile */
+router.delete("/saved-candidates/:candidateId", authMiddleware, requireRole("RECRUTEUR"), removeSavedCandidate);
+
+/** List my saved candidate profiles */
+router.get("/saved-candidates", authMiddleware, requireRole("RECRUTEUR"), getSavedCandidates);
 
 // ─── Notifications ────────────────────────────
 

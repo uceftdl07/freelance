@@ -3,6 +3,8 @@ import { authMiddleware } from "../middleware/auth";
 import {
   getMyProfile,
   updateMyProfile,
+  getMySettings,
+  updateMySettings,
   getPublicProfile,
 } from "../controllers/profile.controller";
 
@@ -22,6 +24,20 @@ router.get("/me", authMiddleware, getMyProfile);
  * @body    Profile fields to update (depends on role)
  */
 router.put("/me", authMiddleware, updateMyProfile);
+
+/**
+ * @route   GET /api/profile/settings
+ * @desc    Get authenticated candidate settings
+ * @access  Private (JWT required)
+ */
+router.get("/settings", authMiddleware, getMySettings);
+
+/**
+ * @route   PUT /api/profile/settings
+ * @desc    Update authenticated candidate settings
+ * @access  Private (JWT required)
+ */
+router.put("/settings", authMiddleware, updateMySettings);
 
 /**
  * @route   GET /api/profile/:id

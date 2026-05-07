@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
-import { getApiBaseUrl } from "../../../lib/api";
 import {
   HiDocumentArrowUp, HiUser, HiBriefcase, HiClock, HiAcademicCap,
   HiWrenchScrewdriver, HiCheckCircle, HiChevronLeft, HiChevronRight,
@@ -26,13 +25,29 @@ interface FormData {
   availability: string; tjm: number; location: string; linkedIn: string; portfolioUrl: string;
 }
 
+interface ExperienceItem {
+  id: string;
+  title: string;
+  company: string;
+  period: string;
+  desc: string;
+}
+
+interface EducationItem {
+  id: string;
+  title: string;
+  company: string;
+  period: string;
+  desc: string;
+}
+
 const emptyForm: FormData = {
   firstName: "", lastName: "", email: "", phone: "",
   title: "", bio: "", skills: [], yearsOfExperience: 0,
   availability: "DISPONIBLE", tjm: 0, location: "", linkedIn: "", portfolioUrl: "",
 };
 
-const API_BASE = getApiBaseUrl();
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function ProfileBuilder() {
   const { token } = useAuth();
@@ -41,6 +56,24 @@ export default function ProfileBuilder() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [experiences, setExperiences] = useState<ExperienceItem[]>([
+    {
+      id: `exp-${Date.now()}`,
+      title: "Développeur React Senior",
+      company: "TechCorp",
+      period: "Jan 2023 - Present",
+      desc: "Applications web React/TypeScript avec architecture micro-frontend.",
+    },
+  ]);
+  const [educations, setEducations] = useState<EducationItem[]>([
+    {
+      id: `edu-${Date.now()}`,
+      title: "Master Informatique",
+      company: "Université Paris-Saclay",
+      period: "2018 - 2020",
+      desc: "Spécialisation génie logiciel et systèmes distribués.",
+    },
+  ]);
   const router = useRouter();
 
   const update = (patch: Partial<FormData>) => setForm((f) => ({ ...f, ...patch }));
@@ -52,6 +85,32 @@ export default function ProfileBuilder() {
     setForm((f) => ({ ...f, ...data }));
     setDone((p) => new Set(p).add(0));
     setStep(1);
+  };
+
+  const addExperience = () => {
+    setExperiences((prev) => [
+      ...prev,
+      {
+        id: `exp-${Date.now()}-${prev.length}`,
+        title: `Expérience ${prev.length + 1}`,
+        company: "Entreprise",
+        period: "A définir",
+        desc: "Ajoutez un résumé de cette expérience.",
+      },
+    ]);
+  };
+
+  const addEducation = () => {
+    setEducations((prev) => [
+      ...prev,
+      {
+        id: `edu-${Date.now()}-${prev.length}`,
+        title: `Formation ${prev.length + 1}`,
+        company: "Ecole/Université",
+        period: "A définir",
+        desc: "Ajoutez un résumé de cette formation.",
+      },
+    ]);
   };
 
   const handlePublish = async () => {
@@ -118,8 +177,8 @@ export default function ProfileBuilder() {
           {step === 0 && <StepCV onParsed={handleParsed} onSkip={goNext} />}
           {step === 1 && <StepInfoPerso form={form} update={update} onNext={goNext} onPrev={goPrev} />}
           {step === 2 && <StepInfoPro form={form} update={update} onNext={goNext} onPrev={goPrev} />}
-          {step === 3 && <StepExperience onNext={goNext} onPrev={goPrev} />}
-          {step === 4 && <StepFormation onNext={goNext} onPrev={goPrev} />}
+          {step === 3 && <StepExperience onNext={goNext} onPrev={goPrev} experiences={experiences} onAddExperience={addExperience} />}
+          {step === 4 && <StepFormation onNext={goNext} onPrev={goPrev} educations={educations} onAddEducation={addEducation} />}
           {step === 5 && <StepCompetences form={form} update={update} onPublish={handlePublish} publishing={publishing} onPrev={goPrev} />}
           </>)}
         </div>
@@ -361,13 +420,15 @@ function StepInfoPro({ form, update, onNext, onPrev }: { form: FormData; update:
 
 /* ─── Step 3: Experience ─────────────────── */
 
-function StepExperience({ onNext, onPrev }: { onNext: () => void; onPrev: () => void }) {
+function StepExperience({ onNext, onPrev, experiences, onAddExperience }: { onNext: () => void; onPrev: () => void; experiences: ExperienceItem[]; onAddExperience: () => void }) {
   return (
     <div>
       <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Expérience professionnelle</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos expériences les plus significatives.</p></div>
       <div className="px-7 py-5">
-        <ExpCard title="Développeur React Senior" company="TechCorp" period="Jan 2023 – Présent" desc="Applications web React/TypeScript avec architecture micro-frontend." />
-        <button className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une expérience</button>
+        {experiences.map((exp) => (
+          <ExpCard key={exp.id} title={exp.title} company={exp.company} period={exp.period} desc={exp.desc} />
+        ))}
+        <button onClick={onAddExperience} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une expérience</button>
       </div>
       <StepFooter onPrev={onPrev} onNext={onNext} />
     </div>
@@ -376,13 +437,15 @@ function StepExperience({ onNext, onPrev }: { onNext: () => void; onPrev: () => 
 
 /* ─── Step 4: Education ──────────────────── */
 
-function StepFormation({ onNext, onPrev }: { onNext: () => void; onPrev: () => void }) {
+function StepFormation({ onNext, onPrev, educations, onAddEducation }: { onNext: () => void; onPrev: () => void; educations: EducationItem[]; onAddEducation: () => void }) {
   return (
     <div>
       <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Formation</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos diplômes et certifications.</p></div>
       <div className="px-7 py-5">
-        <ExpCard title="Master Informatique" company="Université Paris-Saclay" period="2018 – 2020" desc="Spécialisation génie logiciel et systèmes distribués." />
-        <button className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une formation</button>
+        {educations.map((edu) => (
+          <ExpCard key={edu.id} title={edu.title} company={edu.company} period={edu.period} desc={edu.desc} />
+        ))}
+        <button onClick={onAddEducation} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une formation</button>
       </div>
       <StepFooter onPrev={onPrev} onNext={onNext} />
     </div>
@@ -412,10 +475,20 @@ function StepCompetences({ form, update, onPublish, publishing, onPrev }: { form
             ))}
           </div>
         )}
-        <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { addSkill(input.trim()); } }}
-          placeholder="Ajouter une compétence..."
-          className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all" />
+        <div className="flex gap-2">
+          <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { addSkill(input.trim()); } }}
+            placeholder="Ajouter une compétence..."
+            className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all" />
+          <button
+            type="button"
+            onClick={() => input.trim() && addSkill(input.trim())}
+            className="px-4 py-2.5 text-sm font-bold text-white rounded-xl transition-all cursor-pointer"
+            style={{ backgroundColor: "#00b8d9" }}
+          >
+            Ajouter
+          </button>
+        </div>
         {remaining.length > 0 && (
           <div><p className="text-xs text-gray-400 mb-2">Suggestions :</p>
             <div className="flex flex-wrap gap-1.5">{remaining.slice(0, 8).map((s) => (

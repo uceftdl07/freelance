@@ -27,7 +27,8 @@ export function getApiBaseUrl(): string {
 
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs = 30000
 ): Promise<{ success: boolean; message?: string; data?: T; errors?: Record<string, string[]> }> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -44,13 +45,20 @@ export async function apiRequest<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const json = await res.json();
-  return json;
+  try {
+    const res = await fetch(`${getApiBaseUrl()}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    const json = await res.json();
+    return json;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function setToken(token: string) {

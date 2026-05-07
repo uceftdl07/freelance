@@ -48,18 +48,21 @@ async function uploadToSupabase(
   const ext = path.extname(originalName);
   const fileName = `cv-${uniqueSuffix}${ext}`;
 
-  const { data, error } = await supabase.storage
+  // 10s timeout — prevents hanging if Supabase storage is misconfigured
+  const uploadPromise = supabase.storage
     .from(BUCKET)
-    .upload(fileName, buffer, {
-      contentType: mimetype,
-      upsert: false,
-    });
+    .upload(fileName, buffer, { contentType: mimetype, upsert: false });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Supabase upload timeout")), 10000)
+  );
+
+  const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
 
   if (error) {
     throw new Error(`Supabase upload failed: ${error.message}`);
   }
 
-  // Return the public URL
   const {
     data: { publicUrl },
   } = supabase.storage.from(BUCKET).getPublicUrl(data.path);

@@ -1,6 +1,17 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
-import { prisma } from "../utils/prisma";
+import { PrismaClient, Prisma } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+function parseSkills(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 // ─── Search Candidates ────────────────────────
 
@@ -114,10 +125,15 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
       prisma.profileCandidat.count({ where }),
     ]);
 
+    const normalizedCandidates = candidates.map((candidate) => ({
+      ...candidate,
+      skills: parseSkills(candidate.skills),
+    }));
+
     res.json({
       success: true,
       data: {
-        candidates,
+        candidates: normalizedCandidates,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -168,7 +184,13 @@ export async function getCandidateDetail(req: Request, res: Response): Promise<v
       return;
     }
 
-    res.json({ success: true, data: candidate });
+    res.json({
+      success: true,
+      data: {
+        ...candidate,
+        skills: parseSkills(candidate.skills),
+      },
+    });
   } catch (error) {
     console.error("[SEARCH] GetCandidateDetail error:", error);
     res.status(500).json({ success: false, message: "Erreur interne." });

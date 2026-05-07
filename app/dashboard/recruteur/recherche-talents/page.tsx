@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { 
   HiMagnifyingGlass, 
@@ -80,6 +81,72 @@ const MOCK_TALENTS = [
 ];
 
 export default function CVthequePage() {
+  const PAGE_SIZE = 8;
+  const [query, setQuery] = useState("");
+  const [availability, setAvailability] = useState("");
+  const [maxTjm, setMaxTjm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const [appliedQuery, setAppliedQuery] = useState("");
+  const [appliedAvailability, setAppliedAvailability] = useState("");
+  const [appliedMaxTjm, setAppliedMaxTjm] = useState("");
+  const [sortBy, setSortBy] = useState<"PERTINENCE" | "TJM_ASC" | "TJM_DESC">("PERTINENCE");
+
+  const applyFilters = () => {
+    setAppliedQuery(query.trim().toLowerCase());
+    setAppliedAvailability(availability);
+    setAppliedMaxTjm(maxTjm);
+    setVisibleCount(PAGE_SIZE);
+  };
+
+  const resetFilters = () => {
+    setQuery("");
+    setAvailability("");
+    setMaxTjm("");
+    setAppliedQuery("");
+    setAppliedAvailability("");
+    setAppliedMaxTjm("");
+    setVisibleCount(PAGE_SIZE);
+  };
+
+  const filteredTalents = useMemo(() => {
+    const base = MOCK_TALENTS.filter((talent) => {
+      const text = `${talent.firstName} ${talent.lastName} ${talent.title} ${talent.tags.join(" ")} ${talent.location}`.toLowerCase();
+      const matchesText = !appliedQuery || text.includes(appliedQuery);
+
+      const availabilityNormalized = talent.availability.toLowerCase();
+      const matchesAvailability =
+        !appliedAvailability ||
+        (appliedAvailability === "immediat" && availabilityNormalized.includes("disponible")) ||
+        (appliedAvailability === "1mois" && availabilityNormalized.includes("1 mois")) ||
+        (appliedAvailability === "ecoute" && availabilityNormalized.includes("écoute"));
+
+      const tjmValue = parseInt(talent.tjm, 10);
+      const maxTjmValue = appliedMaxTjm ? parseInt(appliedMaxTjm, 10) : NaN;
+      const matchesTjm = Number.isNaN(maxTjmValue) || tjmValue <= maxTjmValue;
+
+      return matchesText && matchesAvailability && matchesTjm;
+    });
+
+    if (sortBy === "TJM_ASC") {
+      return [...base].sort((a, b) => parseInt(a.tjm, 10) - parseInt(b.tjm, 10));
+    }
+    if (sortBy === "TJM_DESC") {
+      return [...base].sort((a, b) => parseInt(b.tjm, 10) - parseInt(a.tjm, 10));
+    }
+
+    return base;
+  }, [appliedAvailability, appliedMaxTjm, appliedQuery, sortBy]);
+
+  const cycleSort = () => {
+    setSortBy((prev) => (prev === "PERTINENCE" ? "TJM_ASC" : prev === "TJM_ASC" ? "TJM_DESC" : "PERTINENCE"));
+  };
+
+  const sortLabel = sortBy === "PERTINENCE" ? "Pertinence" : sortBy === "TJM_ASC" ? "TJM croissant" : "TJM decroissant";
+
+  const displayedTalents = filteredTalents.slice(0, visibleCount);
+  const canLoadMore = visibleCount < filteredTalents.length;
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       
@@ -97,13 +164,15 @@ export default function CVthequePage() {
           <input 
             type="text" 
             placeholder="Métier, compétence, technologie..." 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             className="bg-transparent w-full text-sm text-gray-700 outline-none placeholder-gray-400"
           />
         </div>
 
         {/* Availability */}
         <div className="flex items-center bg-gray-50 rounded-2xl px-5 py-3 border border-transparent focus-within:border-[#00b8d9]/50 transition-colors md:w-48">
-          <select className="bg-transparent w-full text-sm text-gray-700 outline-none cursor-pointer">
+          <select value={availability} onChange={(e) => setAvailability(e.target.value)} className="bg-transparent w-full text-sm text-gray-700 outline-none cursor-pointer">
             <option value="">Disponibilité</option>
             <option value="immediat">Immédiate</option>
             <option value="1mois">Dans 1 mois</option>
@@ -117,15 +186,18 @@ export default function CVthequePage() {
           <input 
             type="number" 
             placeholder="TJM Max" 
+            value={maxTjm}
+            onChange={(e) => setMaxTjm(e.target.value)}
             className="bg-transparent w-full text-sm text-gray-700 outline-none placeholder-gray-400"
           />
         </div>
 
         {/* Filters & Button */}
-        <button className="px-5 flex items-center justify-center text-gray-500 hover:text-[#00b8d9] hover:bg-cyan-50 rounded-2xl transition-colors">
+        <button onClick={resetFilters} className="px-5 flex items-center justify-center text-gray-500 hover:text-[#00b8d9] hover:bg-cyan-50 rounded-2xl transition-colors">
           <HiAdjustmentsHorizontal className="w-5 h-5" />
         </button>
         <button 
+          onClick={applyFilters}
           className="px-8 py-3 rounded-2xl text-white font-bold text-sm transition-transform hover:-translate-y-0.5 shadow-md flex-shrink-0"
           style={{ backgroundColor: "#00b8d9" }}
         >
@@ -136,16 +208,16 @@ export default function CVthequePage() {
       {/* Results Meta */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-bold text-gray-700">
-          <span className="text-[#00b8d9]">342</span> profils correspondants
+          <span className="text-[#00b8d9]">{filteredTalents.length}</span> profils correspondants
         </p>
         <div className="text-sm text-gray-500">
-          Trier par : <span className="font-semibold text-gray-800 cursor-pointer">Pertinence ▾</span>
+          Trier par : <button onClick={cycleSort} className="font-semibold text-gray-800 hover:text-[#00b8d9] cursor-pointer">{sortLabel} ▾</button>
         </div>
       </div>
 
       {/* Talent Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {MOCK_TALENTS.map((talent) => (
+        {displayedTalents.map((talent) => (
           <div key={talent.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-xl hover:border-[#00b8d9]/30 transition-all duration-300 group flex flex-col relative overflow-hidden">
             
             {/* Top: Avatar & Name */}
@@ -198,8 +270,12 @@ export default function CVthequePage() {
 
       {/* Load More */}
       <div className="flex justify-center pt-8">
-        <button className="px-6 py-3 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-all">
-          Afficher plus de profils
+        <button
+          onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+          disabled={!canLoadMore}
+          className="px-6 py-3 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {canLoadMore ? "Afficher plus de profils" : "Tous les profils sont affichés"}
         </button>
       </div>
 

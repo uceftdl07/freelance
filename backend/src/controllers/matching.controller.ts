@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
-import { prisma } from "../utils/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 // Helper: parse JSON-encoded string[] fields from DB
 function parseJsonArray(val: string | string[]): string[] {

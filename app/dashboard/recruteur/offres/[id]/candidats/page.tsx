@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   HiOutlineArrowLeft,
@@ -15,9 +16,39 @@ const MOCK_CANDIDATS = [
   { id: 4, name: "Luc Dubois", title: "Architecte Cloud AWS", exp: "10 ans", status: "Nouveau", avatar: "L", color: "bg-emerald-500", statusColor: "bg-emerald-100 text-emerald-700" },
 ];
 
+function getStatusColor(status: string): string {
+  if (status === "Accepte") return "bg-emerald-100 text-emerald-700";
+  if (status === "Rejete") return "bg-red-100 text-red-700";
+  if (status === "Entretien") return "bg-[#00b8d9]/10 text-[#00b8d9]";
+  if (status === "En revue") return "bg-amber-100 text-amber-700";
+  return "bg-emerald-100 text-emerald-700";
+}
+
 export default function OffreCandidatsPage() {
+  const [candidats, setCandidats] = useState(MOCK_CANDIDATS);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2200);
+  };
+
+  const updateStatus = (id: number, status: string) => {
+    setCandidats((prev) =>
+      prev.map((candidate) =>
+        candidate.id === id ? { ...candidate, status } : candidate
+      )
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {toast && (
+        <div className="fixed top-6 right-6 z-[100] rounded-xl bg-[#0a1628] text-white px-4 py-2 text-sm font-semibold shadow-lg">
+          {toast}
+        </div>
+      )}
+
       {/* Back link */}
       <Link
         href="/dashboard/recruteur/offres"
@@ -29,12 +60,12 @@ export default function OffreCandidatsPage() {
       {/* Header */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <h1 className="text-xl font-bold text-gray-900 mb-1">Candidats pour cette offre</h1>
-        <p className="text-sm text-gray-500">{MOCK_CANDIDATS.length} candidatures reçues</p>
+        <p className="text-sm text-gray-500">{candidats.length} candidatures reçues</p>
       </div>
 
       {/* Candidates List */}
       <div className="space-y-3">
-        {MOCK_CANDIDATS.map((c) => (
+        {candidats.map((c) => (
           <div
             key={c.id}
             className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-5"
@@ -51,7 +82,7 @@ export default function OffreCandidatsPage() {
             </div>
 
             {/* Status */}
-            <span className={`px-3 py-1 text-[11px] font-extrabold rounded-full tracking-wide ${c.statusColor} flex-shrink-0`}>
+            <span className={`px-3 py-1 text-[11px] font-extrabold rounded-full tracking-wide ${getStatusColor(c.status)} flex-shrink-0`}>
               {c.status}
             </span>
 
@@ -61,13 +92,32 @@ export default function OffreCandidatsPage() {
                 href={`/dashboard/recruteur/recherche-talents/${c.id}`}
                 className="p-2 text-gray-400 hover:text-[#00b8d9] hover:bg-cyan-50 rounded-lg transition-colors"
                 title="Voir le profil"
+                aria-label={`Voir le profil de ${c.name}`}
               >
                 <HiOutlineEnvelope className="w-5 h-5" />
               </Link>
-              <button className="p-2 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Accepter">
+              <button
+                onClick={() => {
+                  if (c.status === "Accepte") return;
+                  updateStatus(c.id, "Accepte");
+                  showToast(`Candidature de ${c.name} acceptee.`);
+                }}
+                className="p-2 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                title="Accepter"
+                aria-label={`Accepter la candidature de ${c.name}`}
+              >
                 <HiOutlineCheckCircle className="w-5 h-5" />
               </button>
-              <button className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Rejeter">
+              <button
+                onClick={() => {
+                  if (c.status === "Rejete") return;
+                  updateStatus(c.id, "Rejete");
+                  showToast(`Candidature de ${c.name} rejetee.`);
+                }}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                title="Rejeter"
+                aria-label={`Rejeter la candidature de ${c.name}`}
+              >
                 <HiOutlineXCircle className="w-5 h-5" />
               </button>
             </div>

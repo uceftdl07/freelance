@@ -1,14 +1,20 @@
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 
-const envPath = path.resolve(__dirname, "../../.env");
-const productionEnvPath = path.resolve(__dirname, "../../.env.production");
+// Load the first available env file from common local/project locations
+const envCandidates = [
+  path.resolve(__dirname, "../../.env"),
+  path.resolve(__dirname, "../../../.env"),
+  path.resolve(__dirname, "../../../.env.local"),
+  path.resolve(__dirname, "../../../.env.production"),
+];
 
-// Load environment variables from .env and .env.production as fallback.
-// In production, actual environment variables (e.g. on Render) take precedence.
-dotenv.config({ path: envPath });
-if (process.env.NODE_ENV === "production") {
-  dotenv.config({ path: productionEnvPath });
+for (const candidate of envCandidates) {
+  if (fs.existsSync(candidate)) {
+    dotenv.config({ path: candidate });
+    break;
+  }
 }
 
 export const env = {
@@ -28,6 +34,11 @@ export const env = {
   // Server
   PORT: parseInt(process.env.PORT || "5000", 10),
   NODE_ENV: process.env.NODE_ENV || "development",
+  TRUST_PROXY: process.env.TRUST_PROXY || "1",
+
+  // API Security
+  RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
+  RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || "200", 10),
 
   // CORS
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -44,3 +55,16 @@ export const env = {
     return this.NODE_ENV === "production";
   },
 } as const;
+
+// In production, fail fast for critical secrets.
+if (env.isProd) {
+  const missing: string[] = [];
+  if (!env.DATABASE_URL) missing.push("DATABASE_URL");
+  if (!env.JWT_SECRET || env.JWT_SECRET === "fallback-dev-secret") missing.push("JWT_SECRET");
+  if (!env.FRONTEND_URL) missing.push("FRONTEND_URL");
+
+  if (missing.length > 0) {
+    throw new Error(`[ENV] Missing required env vars in production: ${missing.join(", ")}`);
+  }
+}
+

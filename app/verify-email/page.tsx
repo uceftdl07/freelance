@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { getApiBaseUrl } from "../lib/api";
 import {
   HiCheckCircle,
   HiExclamationTriangle,
   HiArrowPath,
 } from "react-icons/hi2";
 
-const API_BASE = getApiBaseUrl();
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();

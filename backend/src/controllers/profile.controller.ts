@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
-import { prisma } from "../utils/prisma";
+
+const prisma = new PrismaClient();
 
 // ─── Validation Schemas ───────────────────────
 
@@ -29,6 +31,34 @@ const updateRecruteurSchema = z.object({
   phone: z.string().trim().optional(),
   website: z.string().url().optional().or(z.literal("")),
 });
+
+const candidateSettingsSchema = z.object({
+  notifications: z.object({
+    newMissions: z.boolean(),
+    recruiterMessages: z.boolean(),
+  }),
+  visibility: z.enum(["PUBLIC", "PRIVATE", "RECRUITERS_ONLY"]),
+  appearance: z.object({
+    language: z.string().min(2).max(5),
+    darkMode: z.boolean(),
+  }),
+});
+
+let settingsTableReady = false;
+
+async function ensureSettingsTable(): Promise<void> {
+  if (settingsTableReady) return;
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  settingsTableReady = true;
+}
 
 // ─── Get My Profile ───────────────────────────
 
@@ -257,3 +287,75 @@ export async function getPublicProfile(
     });
   }
 }
+
+// ─── Candidate Settings (Server Persistence) ───
+
+export async function getMySettings(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const role = req.user!.role;
+
+    if (role !== "CANDIDAT") {
+      res.status(403).json({ success: false, message: "Réservé aux candidats." });
+      return;
+    }
+
+    await ensureSettingsTable();
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ data: unknown }>>(
+      `SELECT data FROM user_settings WHERE user_id = $1 LIMIT 1;`,
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: {
+        settings: rows[0]?.data || null,
+      },
+    });
+  } catch (error) {
+    console.error("[PROFILE] GetMySettings error:", error);
+    res.status(500).json({ success: false, message: "Erreur interne du serveur." });
+  }
+}
+
+export async function updateMySettings(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const role = req.user!.role;
+
+    if (role !== "CANDIDAT") {
+      res.status(403).json({ success: false, message: "Réservé aux candidats." });
+      return;
+    }
+
+    const validation = candidateSettingsSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    await ensureSettingsTable();
+
+    await prisma.$executeRawUnsafe(
+      `
+        INSERT INTO user_settings (user_id, data, updated_at)
+        VALUES ($1, $2::jsonb, NOW())
+        ON CONFLICT (user_id)
+        DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
+      `,
+      userId,
+      JSON.stringify(validation.data)
+    );
+
+    res.json({ success: true, message: "Paramètres enregistrés.", data: { settings: validation.data } });
+  } catch (error) {
+    console.error("[PROFILE] UpdateMySettings error:", error);
+    res.status(500).json({ success: false, message: "Erreur interne du serveur." });
+  }
+}
+

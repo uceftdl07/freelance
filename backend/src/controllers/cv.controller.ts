@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import path from "path";
+import pdfParse from "pdf-parse";
 import { supabaseAdmin } from "../utils/supabase";
-import { prisma } from "../utils/prisma";
 
+const prisma = new PrismaClient();
 
 // ─── Multer Config (memory storage for cloud uploads) ─
 
@@ -45,26 +47,60 @@ async function uploadToSupabase(
   const ext = path.extname(originalName);
   const fileName = `cv-${uniqueSuffix}${ext}`;
 
-  // 10s timeout — prevents hanging if Supabase storage is misconfigured
-  const uploadPromise = supabaseAdmin.storage
+  const { data, error } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(fileName, buffer, { contentType: mimetype, upsert: false });
-
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Supabase upload timeout")), 10000)
-  );
-
-  const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
+    .upload(fileName, buffer, {
+      contentType: mimetype,
+      upsert: false,
+    });
 
   if (error) {
     throw new Error(`Supabase upload failed: ${error.message}`);
   }
 
+  // Return the public URL
   const {
     data: { publicUrl },
   } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(data.path);
 
   return publicUrl;
+}
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const parserModule = pdfParse as any;
+
+  const parseFn =
+    (typeof parserModule === "function" && parserModule) ||
+    (typeof parserModule?.default === "function" && parserModule.default) ||
+    (typeof parserModule?.pdf === "function" && parserModule.pdf);
+
+  if (parseFn) {
+    const parsed = await parseFn(buffer);
+    if (typeof parsed?.text === "string") {
+      return parsed.text;
+    }
+  }
+
+  const PDFParseCtor =
+    (typeof parserModule?.PDFParse === "function" && parserModule.PDFParse) ||
+    (typeof parserModule?.default?.PDFParse === "function" && parserModule.default.PDFParse);
+
+  if (PDFParseCtor) {
+    const instance = new PDFParseCtor({ data: buffer });
+    try {
+      if (typeof instance.getText === "function") {
+        const textResult = await instance.getText();
+        if (typeof textResult === "string") return textResult;
+        if (typeof textResult?.text === "string") return textResult.text;
+      }
+    } finally {
+      if (typeof instance.destroy === "function") {
+        await instance.destroy();
+      }
+    }
+  }
+
+  throw new Error("Unsupported pdf-parse runtime API. Verify pdf-parse version and import shape.");
 }
 
 // ─── Skills Database (for matching) ───────────
@@ -131,6 +167,33 @@ interface ParsedCV {
   location: string;
   linkedIn: string;
   rawText: string;
+}
+
+function normalizeSkillsForDb(raw: unknown): string | undefined {
+  if (raw === undefined) return undefined;
+  if (Array.isArray(raw)) {
+    return JSON.stringify(raw.filter((s): s is string => typeof s === "string"));
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return JSON.stringify(parsed.filter((s): s is string => typeof s === "string"));
+      }
+    } catch {
+      return JSON.stringify(raw.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+  }
+  return JSON.stringify([]);
+}
+
+function parseSkillsFromDb(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function extractSkills(text: string): string[] {
@@ -268,10 +331,7 @@ async function parseCVFromBuffer(buffer: Buffer, originalName: string): Promise<
   let rawText = "";
 
   if (ext === ".pdf") {
-    // pdf-parse 1.x is CJS — require() returns the function directly
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfData = await (require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>)(buffer);
-    rawText = pdfData.text;
+    rawText = await extractPdfText(buffer);
   } else {
     // For Word docs, extract basic text (simplified)
     rawText = buffer.toString("utf-8");
@@ -371,6 +431,8 @@ export async function saveParsedProfile(
       tjm, location, phone, linkedIn,
     } = req.body;
 
+    const skillsJson = normalizeSkillsForDb(skills);
+
     const profile = await prisma.profileCandidat.upsert({
       where: { userId },
       update: {
@@ -378,7 +440,7 @@ export async function saveParsedProfile(
         lastName: lastName || undefined,
         title: title || undefined,
         bio: bio || undefined,
-        skills: skills ? JSON.stringify(Array.isArray(skills) ? skills : []) : undefined,
+        skills: skillsJson,
         yearsOfExperience: yearsOfExperience ?? undefined,
         availability: availability || undefined,
         portfolioUrl: portfolioUrl || undefined,
@@ -393,7 +455,7 @@ export async function saveParsedProfile(
         lastName: lastName || "",
         title,
         bio,
-        skills: JSON.stringify(Array.isArray(skills) ? skills : []),
+        skills: skillsJson || "[]",
         yearsOfExperience,
         availability: availability || "DISPONIBLE",
         portfolioUrl,
@@ -407,7 +469,10 @@ export async function saveParsedProfile(
     res.json({
       success: true,
       message: "Profil sauvegardé avec succès.",
-      data: profile,
+      data: {
+        ...profile,
+        skills: parseSkillsFromDb(profile.skills),
+      },
     });
   } catch (error) {
     console.error("[CV] SaveProfile error:", error);

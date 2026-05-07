@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
-import { prisma } from "../utils/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 /**
  * Helper: skills are stored as JSON string in SQLite
@@ -9,14 +11,41 @@ function parseSkills(raw: string | null): string[] {
   try { return JSON.parse(raw); } catch { return []; }
 }
 
+function serializeSkills(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return JSON.stringify(raw.filter((s): s is string => typeof s === "string"));
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return JSON.stringify(parsed.filter((s): s is string => typeof s === "string"));
+      }
+    } catch {
+      return JSON.stringify(raw.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+  }
+  return "[]";
+}
+
 /**
  * POST /api/profiles
  * Create or update a candidate profile in SQLite via Prisma
  */
 export async function createPublicProfile(req: Request, res: Response): Promise<void> {
   try {
+    const authUser = req.user;
+    if (!authUser) {
+      res.status(401).json({ success: false, message: "Accès non autorisé." });
+      return;
+    }
+    if (authUser.role !== "CANDIDAT") {
+      res.status(403).json({ success: false, message: "Seuls les candidats peuvent publier un profil candidat." });
+      return;
+    }
+
     const {
-      firstName, lastName, email, phone, title, bio,
+      firstName, lastName, phone, title, bio,
       skills, yearsOfExperience, availability,
       portfolioUrl, tjm, location, linkedIn,
     } = req.body;
@@ -26,29 +55,15 @@ export async function createPublicProfile(req: Request, res: Response): Promise<
       return;
     }
 
-    // Find or create user
-    const userEmail = email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${Date.now()}@freelanceit.demo`;
-    let user = await prisma.user.findUnique({ where: { email: userEmail } });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: userEmail,
-          password: "demo-profile",
-          role: "CANDIDAT",
-        },
-      });
-    }
-
     // Build skills JSON string
-    const skillsJson = JSON.stringify(Array.isArray(skills) ? skills : []);
+    const skillsJson = serializeSkills(skills);
     const yoe = typeof yearsOfExperience === "number" ? yearsOfExperience : (yearsOfExperience ? parseInt(yearsOfExperience) : null);
     const tjmVal = typeof tjm === "number" ? tjm : (tjm ? parseInt(tjm) : null);
     const avail = availability || "DISPONIBLE";
 
     // Upsert profile
     const profile = await prisma.profileCandidat.upsert({
-      where: { userId: user.id },
+      where: { userId: authUser.userId },
       update: {
         firstName, lastName, title, bio,
         skills: skillsJson,
@@ -58,7 +73,7 @@ export async function createPublicProfile(req: Request, res: Response): Promise<
         location, phone, linkedIn,
       },
       create: {
-        userId: user.id,
+        userId: authUser.userId,
         firstName, lastName, title, bio,
         skills: skillsJson,
         yearsOfExperience: yoe,
@@ -69,7 +84,7 @@ export async function createPublicProfile(req: Request, res: Response): Promise<
     });
 
     // Return with parsed skills array
-    res.status(201).json({
+    res.json({
       success: true,
       message: "Profil publié avec succès !",
       data: { ...profile, skills: parseSkills(profile.skills) },

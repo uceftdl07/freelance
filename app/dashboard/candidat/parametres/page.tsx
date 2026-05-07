@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { apiRequest } from "../../../lib/api";
 import {
   HiCog6Tooth,
   HiBell,
@@ -215,6 +216,9 @@ export default function ParametresPage() {
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
+  const [appearanceLoading, setAppearanceLoading] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<string | null>(null);
@@ -230,11 +234,63 @@ export default function ParametresPage() {
 
   // ─── Handlers ───────────────────────────────
 
-  const handleSaveNotifications = () => {
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await apiRequest<{ settings: Settings | null }>("/profile/settings");
+        if (res.success && res.data?.settings) {
+          setSettings(res.data.settings);
+          return;
+        }
+      } catch {
+        // Fall through to local fallback.
+      }
+
+      try {
+        const raw = localStorage.getItem("freelanceit_candidate_settings");
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw) as Settings;
+        if (parsed?.notifications && parsed?.visibility && parsed?.appearance) {
+          setSettings(parsed);
+        }
+      } catch {
+        // Ignore corrupted local settings.
+      }
+    };
+
+    void loadSettings();
+  }, []);
+
+  const persistSettings = (next: Settings) => {
+    try {
+      localStorage.setItem("freelanceit_candidate_settings", JSON.stringify(next));
+    } catch {
+      // Ignore storage errors in restricted environments.
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    setNotifLoading(true);
+    await new Promise((r) => setTimeout(r, 500));
+    persistSettings(settings);
+    await apiRequest("/profile/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+    setNotifLoading(false);
     showToast("Préférences de notifications enregistrées !");
   };
 
-  const handleSaveVisibility = () => {
+  const handleSaveVisibility = async () => {
+    setVisibilityLoading(true);
+    await new Promise((r) => setTimeout(r, 500));
+    persistSettings(settings);
+    await apiRequest("/profile/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+    setVisibilityLoading(false);
     showToast("Visibilité du profil mise à jour !");
   };
 
@@ -266,7 +322,15 @@ export default function ParametresPage() {
     showToast("Mot de passe modifié avec succès !");
   };
 
-  const handleSaveAppearance = () => {
+  const handleSaveAppearance = async () => {
+    setAppearanceLoading(true);
+    await new Promise((r) => setTimeout(r, 500));
+    persistSettings(settings);
+    await apiRequest("/profile/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+    setAppearanceLoading(false);
     showToast("Préférences d'apparence enregistrées !");
   };
 
@@ -331,13 +395,14 @@ export default function ParametresPage() {
           <div className="pt-2 border-t border-gray-100">
             <button
               onClick={handleSaveNotifications}
-              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer"
+              disabled={notifLoading}
+              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-60"
               style={{
                 backgroundColor: "#00b8d9",
                 boxShadow: "0 4px 14px rgba(0,184,217,0.25)",
               }}
             >
-              Enregistrer
+              {notifLoading ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         </div>
@@ -395,13 +460,14 @@ export default function ParametresPage() {
           <div className="pt-3 border-t border-gray-100">
             <button
               onClick={handleSaveVisibility}
-              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer"
+              disabled={visibilityLoading}
+              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-60"
               style={{
                 backgroundColor: "#00b8d9",
                 boxShadow: "0 4px 14px rgba(0,184,217,0.25)",
               }}
             >
-              Enregistrer
+              {visibilityLoading ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         </div>
@@ -602,13 +668,14 @@ export default function ParametresPage() {
           <div className="pt-2 border-t border-gray-100">
             <button
               onClick={handleSaveAppearance}
-              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer"
+              disabled={appearanceLoading}
+              className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-60"
               style={{
                 backgroundColor: "#00b8d9",
                 boxShadow: "0 4px 14px rgba(0,184,217,0.25)",
               }}
             >
-              Enregistrer
+              {appearanceLoading ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
         </div>

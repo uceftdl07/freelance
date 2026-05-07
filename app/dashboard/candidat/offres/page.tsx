@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getApiBaseUrl } from "../../../lib/api";
+import Link from "next/link";
 import {
   HiBriefcase,
   HiMagnifyingGlass,
@@ -60,7 +60,7 @@ export default function OffresPublicPage() {
       if (contractType) params.set("contractType", contractType);
       if (remoteOnly) params.set("remote", "true");
 
-      const API_BASE = getApiBaseUrl();
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
       const res = await fetch(`${API_BASE}/jobs?${params.toString()}`);
       const json = await res.json();
 
@@ -120,7 +120,7 @@ export default function OffresPublicPage() {
               className="w-full bg-transparent text-sm text-white placeholder-gray-500 outline-none"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-gray-500 hover:text-white cursor-pointer">
+              <button onClick={() => setSearch("")} className="text-gray-500 hover:text-white cursor-pointer" aria-label="Effacer la recherche">
                 <HiXMark className="w-4 h-4" />
               </button>
             )}
@@ -220,8 +220,10 @@ export default function OffresPublicPage() {
         </p>
         <button
           onClick={fetchJobs}
+          disabled={loading}
           className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer"
           title="Rafraîchir"
+          aria-label="Rafraichir les offres"
         >
           <HiArrowPath className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
@@ -353,8 +355,9 @@ function JobCard({
       </div>
 
       {/* CTA */}
-      <button
-        className="mt-4 w-full py-2.5 text-sm font-semibold rounded-xl border transition-all duration-200 cursor-pointer"
+      <Link
+        href={`/offres/${job.id}`}
+        className="mt-4 w-full py-2.5 text-sm font-semibold rounded-xl border transition-all duration-200 text-center block"
         style={{
           color: "#00b8d9",
           backgroundColor: "rgba(0, 184, 217, 0.05)",
@@ -372,7 +375,7 @@ function JobCard({
         }}
       >
         Découvrir →
-      </button>
+      </Link>
     </div>
   );
 }

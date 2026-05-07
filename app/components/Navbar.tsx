@@ -6,7 +6,6 @@ import { HiMenu, HiX } from "react-icons/hi";
 import { HiMagnifyingGlass, HiMapPin } from "react-icons/hi2";
 import Link from "next/link";
 import { useAuth } from "../lib/AuthContext";
-import { getApiBaseUrl } from "../lib/api";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import CreateOfferModal from "./CreateOfferModal";
@@ -30,9 +29,7 @@ export default function Navbar() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   const isLinkActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -217,7 +214,7 @@ export default function Navbar() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowLogin(true)}
-                    className="text-sm font-semibold text-gray-600 hover:text-[#0a1628] flex items-center gap-1 cursor-pointer"
+                    className="text-sm font-semibold text-gray-600 hover:text-[#0a1628] flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     Se connecter

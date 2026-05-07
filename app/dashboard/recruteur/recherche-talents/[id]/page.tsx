@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import ContactModal from "../../ContactModal";
+import { apiRequest } from "../../../../lib/api";
 import {
   HiOutlineArrowLeft,
   HiOutlineHeart,
@@ -103,11 +106,86 @@ const CANDIDATE = {
 /* ───── Component ───── */
 
 export default function CandidateProfilePage() {
+  const params = useParams<{ id: string }>();
+  const candidateId = params?.id || "";
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const c = CANDIDATE;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("freelanceit_savedCandidates") || "[]";
+      const ids: string[] = JSON.parse(raw);
+      setSaved(ids.includes(candidateId));
+    } catch {
+      setSaved(false);
+    }
+  }, [candidateId]);
+
+  const showFeedback = (message: string) => {
+    setFeedback(message);
+    setTimeout(() => setFeedback(null), 2500);
+  };
+
+  const toggleSave = async () => {
+    if (saving) return;
+
+    setSaving(true);
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+
+    try {
+      if (nextSaved) {
+        await apiRequest("/save-candidate", {
+          method: "POST",
+          body: JSON.stringify({ candidateId, candidateType: "PROFILE" }),
+        });
+      }
+
+      const raw = localStorage.getItem("freelanceit_savedCandidates") || "[]";
+      const current: string[] = JSON.parse(raw);
+      const updated = nextSaved
+        ? Array.from(new Set([...current, candidateId]))
+        : current.filter((id) => id !== candidateId);
+      localStorage.setItem("freelanceit_savedCandidates", JSON.stringify(updated));
+
+      const rawMap = localStorage.getItem("freelanceit_savedCandidatesData") || "{}";
+      const savedData = JSON.parse(rawMap) as Record<
+        string,
+        { id: string; name: string; title: string; location: string; tjm: number }
+      >;
+
+      if (nextSaved) {
+        savedData[candidateId] = {
+          id: candidateId,
+          name: c.name,
+          title: c.title,
+          location: c.location,
+          tjm: c.tjm,
+        };
+      } else {
+        delete savedData[candidateId];
+      }
+      localStorage.setItem("freelanceit_savedCandidatesData", JSON.stringify(savedData));
+
+      showFeedback(nextSaved ? "Profil sauvegarde." : "Profil retire des sauvegardes.");
+    } catch {
+      showFeedback("Action enregistree localement.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {feedback && (
+        <div className="fixed top-6 right-6 z-[100] rounded-xl bg-[#0a1628] text-white px-4 py-2 text-sm font-semibold shadow-lg">
+          {feedback}
+        </div>
+      )}
+
       {/* Back */}
       <Link
         href="/dashboard/recruteur/recherche-talents"
@@ -155,6 +233,7 @@ export default function CandidateProfilePage() {
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
+              onClick={() => setContactOpen(true)}
               className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-white rounded-xl shadow-lg transition-all hover:-translate-y-0.5 cursor-pointer"
               style={{ backgroundColor: "#00b8d9", boxShadow: "0 4px 14px rgba(0,184,217,0.3)" }}
             >
@@ -162,13 +241,15 @@ export default function CandidateProfilePage() {
               Proposer une mission
             </button>
             <button
-              onClick={() => setSaved(!saved)}
+              onClick={toggleSave}
+              disabled={saving}
               className={`p-3 rounded-xl border transition-all cursor-pointer ${
                 saved
                   ? "bg-rose-50 border-rose-200 text-rose-500"
                   : "bg-white border-gray-200 text-gray-400 hover:text-rose-500 hover:border-rose-200"
-              }`}
+              } disabled:opacity-60`}
               title="Sauvegarder le profil"
+              aria-label={saved ? "Retirer des sauvegardes" : "Sauvegarder le profil"}
             >
               {saved ? <HiHeart className="w-5 h-5" /> : <HiOutlineHeart className="w-5 h-5" />}
             </button>
@@ -346,6 +427,7 @@ export default function CandidateProfilePage() {
             <p className="text-white font-bold text-sm mb-1">Ce profil vous intéresse ?</p>
             <p className="text-gray-400 text-xs mb-4">Contactez {c.name.split(" ")[0]} directement.</p>
             <button
+              onClick={() => setContactOpen(true)}
               className="w-full py-3 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer"
               style={{ backgroundColor: "#00b8d9", boxShadow: "0 4px 14px rgba(0,184,217,0.3)" }}
             >
@@ -354,6 +436,13 @@ export default function CandidateProfilePage() {
           </div>
         </div>
       </div>
+
+      <ContactModal
+        isOpen={contactOpen}
+        onClose={() => setContactOpen(false)}
+        candidateId={candidateId}
+        candidateName={c.name}
+      />
     </div>
   );
 }

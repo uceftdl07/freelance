@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import path from "path";
-import { supabase } from "../utils/supabase";
+import { supabaseAdmin } from "../utils/supabase";
 import { prisma } from "../utils/prisma";
 
 
@@ -46,7 +46,7 @@ async function uploadToSupabase(
   const fileName = `cv-${uniqueSuffix}${ext}`;
 
   // 10s timeout — prevents hanging if Supabase storage is misconfigured
-  const uploadPromise = supabase.storage
+  const uploadPromise = supabaseAdmin.storage
     .from(BUCKET)
     .upload(fileName, buffer, { contentType: mimetype, upsert: false });
 
@@ -62,7 +62,7 @@ async function uploadToSupabase(
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
+  } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(data.path);
 
   return publicUrl;
 }

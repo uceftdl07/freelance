@@ -14,7 +14,7 @@ services:
     rootDir: backend
 
     # Build & Start
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && npx prisma migrate deploy
     startCommand: npm run start
 
     # Plan (free tier for dev, upgrade for production)

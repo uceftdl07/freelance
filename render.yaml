@@ -14,7 +14,7 @@ services:
     rootDir: backend
 
     # Build & Start
-    buildCommand: npm install && npm run build && npx prisma db push --skip-generate --accept-data-loss
+    buildCommand: npm install && npm run build
     startCommand: npm run start
 
     # Plan (free tier for dev, upgrade for production)

@@ -268,10 +268,9 @@ async function parseCVFromBuffer(buffer: Buffer, originalName: string): Promise<
   let rawText = "";
 
   if (ext === ".pdf") {
+    // pdf-parse 1.x is CJS — require() returns the function directly
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require("pdf-parse");
-    const fn = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default;
-    const pdfData = await fn(buffer);
+    const pdfData = await (require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>)(buffer);
     rawText = pdfData.text;
   } else {
     // For Word docs, extract basic text (simplified)

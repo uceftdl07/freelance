@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import path from "path";
-import pdfParse from "pdf-parse";
 import { supabase } from "../utils/supabase";
 import { prisma } from "../utils/prisma";
 
-// pdf-parse CJS/ESM compat
-const pdf = (pdfParse as any).default ?? pdfParse;
+// pdf-parse is CommonJS-only; require() avoids ESM interop issues
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdf = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 
 // ─── Multer Config (memory storage for cloud uploads) ─
 

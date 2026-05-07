@@ -87,31 +87,51 @@ export default function ProfileBuilder() {
     setStep(1);
   };
 
-  const addExperience = () => {
-    setExperiences((prev) => [
-      ...prev,
-      {
-        id: `exp-${Date.now()}-${prev.length}`,
-        title: `Expérience ${prev.length + 1}`,
-        company: "Entreprise",
-        period: "A définir",
-        desc: "Ajoutez un résumé de cette expérience.",
-      },
-    ]);
-  };
+   const addExperience = () => {
+     setExperiences((prev) => [
+       ...prev,
+       {
+         id: `exp-${Date.now()}-${prev.length}`,
+         title: `Expérience ${prev.length + 1}`,
+         company: "Entreprise",
+         period: "A définir",
+         desc: "Ajoutez un résumé de cette expérience.",
+       },
+     ]);
+   };
 
-  const addEducation = () => {
-    setEducations((prev) => [
-      ...prev,
-      {
-        id: `edu-${Date.now()}-${prev.length}`,
-        title: `Formation ${prev.length + 1}`,
-        company: "Ecole/Université",
-        period: "A définir",
-        desc: "Ajoutez un résumé de cette formation.",
-      },
-    ]);
-  };
+   const updateExperience = (id: string, patch: Partial<ExperienceItem>) => {
+     setExperiences((prev) =>
+       prev.map((exp) => (exp.id === id ? { ...exp, ...patch } : exp))
+     );
+   };
+
+   const deleteExperience = (id: string) => {
+     setExperiences((prev) => prev.filter((exp) => exp.id !== id));
+   };
+
+   const addEducation = () => {
+     setEducations((prev) => [
+       ...prev,
+       {
+         id: `edu-${Date.now()}-${prev.length}`,
+         title: `Formation ${prev.length + 1}`,
+         company: "Ecole/Université",
+         period: "A définir",
+         desc: "Ajoutez un résumé de cette formation.",
+       },
+     ]);
+   };
+
+   const updateEducation = (id: string, patch: Partial<EducationItem>) => {
+     setEducations((prev) =>
+       prev.map((edu) => (edu.id === id ? { ...edu, ...patch } : edu))
+     );
+   };
+
+   const deleteEducation = (id: string) => {
+     setEducations((prev) => prev.filter((edu) => edu.id !== id));
+   };
 
   const handlePublish = async () => {
     setPublishing(true);
@@ -177,8 +197,8 @@ export default function ProfileBuilder() {
           {step === 0 && <StepCV onParsed={handleParsed} onSkip={goNext} />}
           {step === 1 && <StepInfoPerso form={form} update={update} onNext={goNext} onPrev={goPrev} />}
           {step === 2 && <StepInfoPro form={form} update={update} onNext={goNext} onPrev={goPrev} />}
-          {step === 3 && <StepExperience onNext={goNext} onPrev={goPrev} experiences={experiences} onAddExperience={addExperience} />}
-          {step === 4 && <StepFormation onNext={goNext} onPrev={goPrev} educations={educations} onAddEducation={addEducation} />}
+           {step === 3 && <StepExperience onNext={goNext} onPrev={goPrev} experiences={experiences} onAddExperience={addExperience} onUpdateExperience={updateExperience} onDeleteExperience={deleteExperience} />}
+           {step === 4 && <StepFormation onNext={goNext} onPrev={goPrev} educations={educations} onAddEducation={addEducation} onUpdateEducation={updateEducation} onDeleteEducation={deleteEducation} />}
           {step === 5 && <StepCompetences form={form} update={update} onPublish={handlePublish} publishing={publishing} onPrev={goPrev} />}
           </>)}
         </div>
@@ -420,37 +440,37 @@ function StepInfoPro({ form, update, onNext, onPrev }: { form: FormData; update:
 
 /* ─── Step 3: Experience ─────────────────── */
 
-function StepExperience({ onNext, onPrev, experiences, onAddExperience }: { onNext: () => void; onPrev: () => void; experiences: ExperienceItem[]; onAddExperience: () => void }) {
-  return (
-    <div>
-      <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Expérience professionnelle</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos expériences les plus significatives.</p></div>
-      <div className="px-7 py-5">
-        {experiences.map((exp) => (
-          <ExpCard key={exp.id} title={exp.title} company={exp.company} period={exp.period} desc={exp.desc} />
-        ))}
-        <button onClick={onAddExperience} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une expérience</button>
-      </div>
-      <StepFooter onPrev={onPrev} onNext={onNext} />
-    </div>
-  );
-}
+function StepExperience({ onNext, onPrev, experiences, onAddExperience, onUpdateExperience, onDeleteExperience }: { onNext: () => void; onPrev: () => void; experiences: ExperienceItem[]; onAddExperience: () => void; onUpdateExperience: (id: string, patch: Partial<ExperienceItem>) => void; onDeleteExperience: (id: string) => void }) {
+   return (
+     <div>
+       <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Expérience professionnelle</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos expériences les plus significatives.</p></div>
+       <div className="px-7 py-5 space-y-4">
+         {experiences.map((exp) => (
+           <EditableExpCard key={exp.id} exp={exp} onUpdate={(patch) => onUpdateExperience(exp.id, patch)} onDelete={() => onDeleteExperience(exp.id)} />
+         ))}
+         <button onClick={onAddExperience} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une expérience</button>
+       </div>
+       <StepFooter onPrev={onPrev} onNext={onNext} />
+     </div>
+   );
+ }
 
 /* ─── Step 4: Education ──────────────────── */
 
-function StepFormation({ onNext, onPrev, educations, onAddEducation }: { onNext: () => void; onPrev: () => void; educations: EducationItem[]; onAddEducation: () => void }) {
-  return (
-    <div>
-      <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Formation</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos diplômes et certifications.</p></div>
-      <div className="px-7 py-5">
-        {educations.map((edu) => (
-          <ExpCard key={edu.id} title={edu.title} company={edu.company} period={edu.period} desc={edu.desc} />
-        ))}
-        <button onClick={onAddEducation} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une formation</button>
-      </div>
-      <StepFooter onPrev={onPrev} onNext={onNext} />
-    </div>
-  );
-}
+function StepFormation({ onNext, onPrev, educations, onAddEducation, onUpdateEducation, onDeleteEducation }: { onNext: () => void; onPrev: () => void; educations: EducationItem[]; onAddEducation: () => void; onUpdateEducation: (id: string, patch: Partial<EducationItem>) => void; onDeleteEducation: (id: string) => void }) {
+   return (
+     <div>
+       <div className="px-7 pt-7 pb-2"><h2 className="text-lg font-bold text-gray-800">Formation</h2><p className="text-sm text-gray-500 mt-1">Ajoutez vos diplômes et certifications.</p></div>
+       <div className="px-7 py-5 space-y-4">
+         {educations.map((edu) => (
+           <EditableExpCard key={edu.id} exp={edu} onUpdate={(patch) => onUpdateEducation(edu.id, patch)} onDelete={() => onDeleteEducation(edu.id)} />
+         ))}
+         <button onClick={onAddEducation} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-semibold text-gray-400 hover:border-[#00b8d9] hover:text-[#00b8d9] transition-all cursor-pointer">+ Ajouter une formation</button>
+       </div>
+       <StepFooter onPrev={onPrev} onNext={onNext} />
+     </div>
+   );
+ }
 
 /* ─── Step 5: Skills + Publish ───────────── */
 
@@ -531,6 +551,63 @@ function SuccessView() {
 }
 
 /* ─── Shared UI ──────────────────────────── */
+
+function EditableExpCard({ exp, onUpdate, onDelete }: { exp: ExperienceItem; onUpdate: (patch: Partial<ExperienceItem>) => void; onDelete: () => void }) {
+  const handleTitleChange = useCallback((value: string) => onUpdate({ title: value }), [onUpdate]);
+  const handleCompanyChange = useCallback((value: string) => onUpdate({ company: value }), [onUpdate]);
+  const handlePeriodChange = useCallback((value: string) => onUpdate({ period: value }), [onUpdate]);
+  const handleDescChange = useCallback((value: string) => onUpdate({ desc: value }), [onUpdate]);
+
+  return (
+    <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Titre du poste</label>
+            <input
+              type="text"
+              value={exp.title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="Ex: Développeur React Senior"
+              className="w-full px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Entreprise</label>
+              <input
+                type="text"
+                value={exp.company}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                placeholder="Ex: TechCorp"
+                className="w-full px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Période</label>
+              <input
+                type="text"
+                value={exp.period}
+                onChange={(e) => handlePeriodChange(e.target.value)}
+                placeholder="Ex: Jan 2023 - Present"
+                className="w-full px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+            <textarea
+              value={exp.desc}
+              onChange={(e) => handleDescChange(e.target.value)}
+              placeholder="Décrivez vos responsabilités et accomplissements..."
+              rows={2}
+              className="w-full px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#00b8d9] focus:bg-white transition-all resize-none" />
+          </div>
+        </div>
+        <button onClick={onDelete} className="flex-shrink-0 mt-1 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer">Supprimer</button>
+      </div>
+    </div>
+  );
+}
+
+ /* ─── Shared UI ──────────────────────────── */
 
 function Field({ label, value, onChange, placeholder, type = "text", textarea = false }: {
   label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; textarea?: boolean;

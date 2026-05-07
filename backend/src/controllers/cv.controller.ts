@@ -4,9 +4,6 @@ import path from "path";
 import { supabase } from "../utils/supabase";
 import { prisma } from "../utils/prisma";
 
-// pdf-parse is CommonJS-only; require() avoids ESM interop issues
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdf = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 
 // ─── Multer Config (memory storage for cloud uploads) ─
 
@@ -271,7 +268,10 @@ async function parseCVFromBuffer(buffer: Buffer, originalName: string): Promise<
   let rawText = "";
 
   if (ext === ".pdf") {
-    const pdfData = await pdf(buffer);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require("pdf-parse");
+    const fn = typeof pdfParse === "function" ? pdfParse : (pdfParse as any).default;
+    const pdfData = await fn(buffer);
     rawText = pdfData.text;
   } else {
     // For Word docs, extract basic text (simplified)

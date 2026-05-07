@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
 import {
@@ -49,32 +49,145 @@ const emptyForm: FormData = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+const STORAGE_KEYS = {
+  form: "profileBuilder_form",
+  experiences: "profileBuilder_experiences",
+  educations: "profileBuilder_educations",
+  done: "profileBuilder_done",
+  step: "profileBuilder_step",
+};
+
 export default function ProfileBuilder() {
   const { token } = useAuth();
-  const [step, setStep] = useState(0);
-  const [done, setDone] = useState<Set<number>>(new Set());
-  const [form, setForm] = useState<FormData>(emptyForm);
+
+  // Charger depuis localStorage ou utiliser les valeurs par défaut
+  const [step, setStep] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEYS.step);
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
+  });
+
+  const [done, setDone] = useState<Set<number>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEYS.done);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    }
+    return new Set();
+  });
+
+  const [form, setForm] = useState<FormData>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEYS.form);
+      return saved ? JSON.parse(saved) : emptyForm;
+    }
+    return emptyForm;
+  });
+
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
-  const [experiences, setExperiences] = useState<ExperienceItem[]>([
-    {
-      id: `exp-${Date.now()}`,
-      title: "Développeur React Senior",
-      company: "TechCorp",
-      period: "Jan 2023 - Present",
-      desc: "Applications web React/TypeScript avec architecture micro-frontend.",
-    },
-  ]);
-  const [educations, setEducations] = useState<EducationItem[]>([
-    {
-      id: `edu-${Date.now()}`,
-      title: "Master Informatique",
-      company: "Université Paris-Saclay",
-      period: "2018 - 2020",
-      desc: "Spécialisation génie logiciel et systèmes distribués.",
-    },
-  ]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  const [experiences, setExperiences] = useState<ExperienceItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEYS.experiences);
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  const [educations, setEducations] = useState<EducationItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEYS.educations);
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
   const router = useRouter();
+
+  // Charger le brouillon sauvegardé depuis la base de données au démarrage
+  useEffect(() => {
+    const loadProfileDraft = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE}/profiles/draft`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          const { form: savedForm, experiences: savedExp, educations: savedEdu, step: savedStep, done: savedDone } = json.data;
+          if (savedForm) setForm(savedForm);
+          if (savedExp) setExperiences(savedExp);
+          if (savedEdu) setEducations(savedEdu);
+          if (savedStep !== undefined) setStep(savedStep);
+          if (savedDone) setDone(new Set(savedDone));
+        }
+      } catch (e) {
+        console.error("Erreur lors du chargement du brouillon:", e);
+      }
+    };
+
+    loadProfileDraft();
+  }, [token]);
+
+  // Sauvegarder dans localStorage (cache local)
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.form, JSON.stringify(form));
+  }, [form]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.experiences, JSON.stringify(experiences));
+  }, [experiences]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.educations, JSON.stringify(educations));
+  }, [educations]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.done, JSON.stringify(Array.from(done)));
+  }, [done]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.step, JSON.stringify(step));
+  }, [step]);
+
+  // Sauvegarder automatiquement dans la base de données (brouillon)
+  useEffect(() => {
+    const saveProfileDraft = async () => {
+      try {
+        await fetch(`${API_BASE}/profiles/draft`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            form,
+            experiences,
+            educations,
+            step,
+            done: Array.from(done),
+          }),
+        });
+        setLastSaved(new Date());
+      } catch (e) {
+        console.error("Erreur lors de la sauvegarde du brouillon:", e);
+      }
+    };
+
+    // Débounce: sauvegarder 2 secondes après la dernière modification
+    const debounceTimer = setTimeout(() => {
+      if (form.firstName || experiences.length > 0 || educations.length > 0) {
+        saveProfileDraft();
+      }
+    }, 2000);
+
+    return () => clearTimeout(debounceTimer);
+  }, [form, experiences, educations, step, done, token]);
 
   const update = (patch: Partial<FormData>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -148,7 +261,16 @@ export default function ProfileBuilder() {
       if (json.success) {
         setDone((p) => new Set(p).add(5));
         setPublished(true);
-        setTimeout(() => router.push("/dashboard/candidat"), 3000);
+
+        // Nettoyer localStorage après succès
+        setTimeout(() => {
+          localStorage.removeItem(STORAGE_KEYS.form);
+          localStorage.removeItem(STORAGE_KEYS.experiences);
+          localStorage.removeItem(STORAGE_KEYS.educations);
+          localStorage.removeItem(STORAGE_KEYS.done);
+          localStorage.removeItem(STORAGE_KEYS.step);
+          router.push("/dashboard/candidat");
+        }, 3000);
       }
     } catch (e) { console.error(e); }
     setPublishing(false);
@@ -167,6 +289,12 @@ export default function ProfileBuilder() {
               </div>
               <span className="text-[11px] text-gray-400 font-mono">{done.size}/6</span>
             </div>
+            {lastSaved && (
+              <p className="text-[10px] text-green-400 mt-2 flex items-center gap-1">
+                <span>✓</span>
+                Brouillon sauvegardé
+              </p>
+            )}
           </div>
           <nav className="p-3 space-y-0.5">
             {STEPS.map((s) => {

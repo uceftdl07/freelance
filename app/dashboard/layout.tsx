@@ -6,7 +6,6 @@ import Link from "next/link";
 import WelcomeModal from "./WelcomeModal";
 import {
   HiHome,
-  HiDocumentText,
   HiBriefcase,
   HiCog6Tooth,
   HiArrowRightOnRectangle,
@@ -22,7 +21,6 @@ import {
 const candidatLinks = [
   { label: "Tableau de bord", href: "/dashboard/candidat", icon: HiHome },
   { label: "Mon Profil", href: "/dashboard/candidat/profil", icon: HiUser },
-  { label: "Mon CV", href: "/dashboard/candidat/cv", icon: HiDocumentText },
   { label: "Offres de mission", href: "/dashboard/candidat/offres", icon: HiMagnifyingGlass },
   { label: "Mes Candidatures", href: "/dashboard/candidat/candidatures", icon: HiBriefcase },
   { label: "Mes Favoris", href: "/dashboard/candidat/favoris", icon: HiHeart },

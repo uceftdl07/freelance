@@ -47,7 +47,10 @@ const emptyForm: FormData = {
   availability: "DISPONIBLE", tjm: 0, location: "", linkedIn: "", portfolioUrl: "",
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE = RAW_API_URL.endsWith("/api")
+  ? RAW_API_URL
+  : `${RAW_API_URL.replace(/\/$/, "")}/api`;
 
 const STORAGE_KEYS = {
   form: "profileBuilder_form",
@@ -296,7 +299,7 @@ export default function ProfileBuilder() {
 
       console.log("📤 Envoi des données au serveur...", payload);
 
-      const res = await fetch(`${API_BASE}/profile/publish`, {
+      let res = await fetch(`${API_BASE}/profile/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -304,6 +307,18 @@ export default function ProfileBuilder() {
         },
         body: JSON.stringify(payload),
       });
+
+      // Compat fallback: some deployments still expose only /api/profiles (legacy publish route)
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE}/profiles`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       console.log("📨 Réponse du serveur:", res.status, res.statusText);
 

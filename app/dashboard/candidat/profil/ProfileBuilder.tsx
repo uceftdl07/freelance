@@ -63,6 +63,39 @@ const STORAGE_KEYS = {
 export default function ProfileBuilder() {
   const { token } = useAuth();
 
+  const hydrateFormFromProfile = useCallback((profile: any, fallbackEmail?: string) => {
+    if (!profile) return;
+    const parsedSkills = Array.isArray(profile.skills)
+      ? profile.skills
+      : typeof profile.skills === "string"
+        ? (() => {
+            try {
+              const s = JSON.parse(profile.skills);
+              return Array.isArray(s) ? s : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+
+    setForm((prev) => ({
+      ...prev,
+      firstName: profile.firstName || prev.firstName,
+      lastName: profile.lastName || prev.lastName,
+      email: profile.email || fallbackEmail || prev.email,
+      phone: profile.phone || prev.phone,
+      title: profile.title || prev.title,
+      bio: profile.bio || prev.bio,
+      skills: parsedSkills,
+      yearsOfExperience: profile.yearsOfExperience ?? prev.yearsOfExperience,
+      availability: profile.availability || prev.availability,
+      tjm: profile.tjm ?? prev.tjm,
+      location: profile.location || prev.location,
+      linkedIn: profile.linkedIn || prev.linkedIn,
+      portfolioUrl: profile.portfolioUrl || prev.portfolioUrl,
+    }));
+  }, []);
+
   // Charger depuis localStorage ou utiliser les valeurs par défaut
   const [step, setStep] = useState(() => {
     if (typeof window !== "undefined") {
@@ -112,30 +145,50 @@ export default function ProfileBuilder() {
 
   // Charger le brouillon sauvegardé depuis la base de données au démarrage
   useEffect(() => {
-    const loadProfileDraft = async () => {
+    const loadProfileData = async () => {
       if (!token) return;
+
       try {
-        const res = await fetch(`${API_BASE}/profile/draft`, {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+        const draftRes = await fetch(`${API_BASE}/profile/draft`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        const json = await res.json();
-        if (json.success && json.data) {
-          const { form: savedForm, experiences: savedExp, educations: savedEdu, step: savedStep, done: savedDone } = json.data;
-          if (savedForm) setForm(savedForm);
-          if (savedExp) setExperiences(savedExp);
-          if (savedEdu) setEducations(savedEdu);
-          if (savedStep !== undefined) setStep(savedStep);
-          if (savedDone) setDone(new Set(savedDone));
+
+        if (draftRes.ok) {
+          const draftJson = await draftRes.json();
+          if (draftJson.success && draftJson.data) {
+            const { form: savedForm, experiences: savedExp, educations: savedEdu, step: savedStep, done: savedDone } = draftJson.data;
+            if (savedForm) setForm(savedForm);
+            if (savedExp) setExperiences(savedExp);
+            if (savedEdu) setEducations(savedEdu);
+            if (savedStep !== undefined) setStep(savedStep);
+            if (savedDone) setDone(new Set(savedDone));
+            return;
+          }
         }
       } catch (e) {
         console.error("Erreur lors du chargement du brouillon:", e);
       }
+
+      // Fallback: si pas de brouillon, charger le profil publié
+      try {
+        const meRes = await fetch(`${API_BASE}/profile/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!meRes.ok) return;
+
+        const meJson = await meRes.json();
+        if (meJson.success) {
+          const serverProfile = meJson.data?.profile;
+          const serverEmail = meJson.data?.email;
+          hydrateFormFromProfile(serverProfile, serverEmail);
+        }
+      } catch (e) {
+        console.error("Erreur lors du chargement du profil publié:", e);
+      }
     };
 
-    loadProfileDraft();
-  }, [token]);
+    loadProfileData();
+  }, [token, hydrateFormFromProfile]);
 
   // Sauvegarder dans localStorage (cache local)
   useEffect(() => {
@@ -166,7 +219,7 @@ export default function ProfileBuilder() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             form,
@@ -337,13 +390,14 @@ export default function ProfileBuilder() {
         setDone((p) => new Set(p).add(5));
         setPublished(true);
 
-        // Nettoyer localStorage après succès
+        // Re-hydrate l'état local avec les données publiées pour éviter une vue vide au retour
+        setForm((prev) => ({ ...prev, ...payload }));
+
+        // On conserve experiences/educations localement pour l'instant
+        // (elles ne sont pas encore publiées via un endpoint dédié dans ce flow)
+        localStorage.setItem(STORAGE_KEYS.form, JSON.stringify({ ...form, ...payload }));
+
         setTimeout(() => {
-          localStorage.removeItem(STORAGE_KEYS.form);
-          localStorage.removeItem(STORAGE_KEYS.experiences);
-          localStorage.removeItem(STORAGE_KEYS.educations);
-          localStorage.removeItem(STORAGE_KEYS.done);
-          localStorage.removeItem(STORAGE_KEYS.step);
           router.push("/dashboard/candidat");
         }, 3000);
       } else {

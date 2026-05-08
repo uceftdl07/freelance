@@ -49,13 +49,6 @@ router.get("/settings", authMiddleware, getMySettings);
 router.put("/settings", authMiddleware, updateMySettings);
 
 /**
- * @route   GET /api/profile/:id
- * @desc    Get a user's public profile
- * @access  Public
- */
-router.get("/:id", getPublicProfile);
-
-/**
  * @route   PUT /api/profile/draft
  * @desc    Save profile draft
  * @access  Private (JWT required)
@@ -117,5 +110,13 @@ router.put("/educations/:id", authMiddleware, updateEducation);
  * @access  Private (JWT required)
  */
 router.delete("/educations/:id", authMiddleware, deleteEducation);
+
+/**
+ * @route   GET /api/profile/:id
+ * @desc    Get a user's public profile
+ * @access  Public
+ * @note    MUST be last - generic route that matches any id parameter
+ */
+router.get("/:id", getPublicProfile);
 
 export default router;

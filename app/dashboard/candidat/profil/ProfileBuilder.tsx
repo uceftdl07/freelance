@@ -247,18 +247,78 @@ export default function ProfileBuilder() {
    };
 
   const handlePublish = async () => {
+    // Validation des champs obligatoires
+    if (!form.firstName?.trim()) {
+      alert("❌ Prénom requis");
+      setStep(1);
+      return;
+    }
+    if (!form.lastName?.trim()) {
+      alert("❌ Nom requis");
+      setStep(1);
+      return;
+    }
+    if (!form.email?.trim()) {
+      alert("❌ Email requis");
+      setStep(1);
+      return;
+    }
+    if (!form.title?.trim()) {
+      alert("❌ Titre professionnel requis");
+      setStep(2);
+      return;
+    }
+
     setPublishing(true);
     try {
+      if (!token) {
+        alert("Vous devez être connecté pour publier votre profil.");
+        setPublishing(false);
+        return;
+      }
+
+      // Préparer les données pour l'API
+      const payload = {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        phone: form.phone?.trim() || null,
+        title: form.title.trim(),
+        bio: form.bio?.trim() || null,
+        skills: form.skills || [],
+        yearsOfExperience: form.yearsOfExperience || 0,
+        availability: form.availability || "DISPONIBLE",
+        tjm: form.tjm || 0,
+        location: form.location?.trim() || null,
+        linkedIn: form.linkedIn?.trim() || null,
+        portfolioUrl: form.portfolioUrl?.trim() || null,
+      };
+
+      console.log("📤 Envoi des données au serveur...", payload);
+
       const res = await fetch(`${API_BASE}/profile/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
+
+      console.log("📨 Réponse du serveur:", res.status, res.statusText);
+
       const json = await res.json();
+      console.log("📦 Données reçues:", json);
+
+      if (!res.ok) {
+        console.error("❌ Erreur serveur:", json.message || "Erreur inconnue");
+        alert(`Erreur (${res.status}): ${json.message || "Impossible de publier votre profil"}`);
+        setPublishing(false);
+        return;
+      }
+
       if (json.success) {
+        console.log("✅ Profil publié avec succès!");
         setDone((p) => new Set(p).add(5));
         setPublished(true);
 
@@ -271,9 +331,16 @@ export default function ProfileBuilder() {
           localStorage.removeItem(STORAGE_KEYS.step);
           router.push("/dashboard/candidat");
         }, 3000);
+      } else {
+        console.error("❌ Publication échouée:", json.message);
+        alert(`Erreur: ${json.message}`);
+        setPublishing(false);
       }
-    } catch (e) { console.error(e); }
-    setPublishing(false);
+    } catch (e) {
+      console.error("❌ Erreur lors de la publication:", e);
+      alert(`Erreur: ${e instanceof Error ? e.message : "Erreur inconnue"}`);
+      setPublishing(false);
+    }
   };
 
   return (

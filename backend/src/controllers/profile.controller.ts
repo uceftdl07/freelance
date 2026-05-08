@@ -488,6 +488,15 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Vérifier que firstName et lastName sont présents
+    if (!validation.data.firstName || !validation.data.lastName) {
+      res.status(400).json({
+        success: false,
+        message: "Le prénom et le nom sont obligatoires.",
+      });
+      return;
+    }
+
     const data: Record<string, unknown> = { ...validation.data };
     if (data.skills && Array.isArray(data.skills)) {
       data.skills = JSON.stringify(data.skills);
@@ -495,9 +504,15 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
     data.status = "PUBLISHED";
     data.draftData = null; // Supprimer les données de brouillon après publication
 
-    const updatedProfile = await prisma.profileCandidat.update({
+    const updatedProfile = await prisma.profileCandidat.upsert({
       where: { userId },
-      data: data as any,
+      update: data as any,
+      create: {
+        userId,
+        firstName: validation.data.firstName!,
+        lastName: validation.data.lastName!,
+        ...(data as any),
+      },
     });
 
     res.json({
@@ -510,6 +525,7 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
+      error: process.env.NODE_ENV === "development" ? error : undefined,
     });
   }
 }

@@ -42,7 +42,6 @@ const recruteurLinks = [
 const pageTitles: Record<string, string> = {
   "/dashboard/candidat": "Tableau de bord",
   "/dashboard/candidat/profil": "Mon Profil",
-  "/dashboard/candidat/cv": "Mon CV",
   "/dashboard/candidat/offres": "Offres de mission",
   "/dashboard/candidat/candidatures": "Mes Candidatures",
   "/dashboard/candidat/favoris": "Mes Favoris",
@@ -277,9 +276,6 @@ export default function DashboardLayout({
                   <div className="py-2 flex flex-col">
                     <Link href="/dashboard/candidat/profil" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
                       <HiUser className="w-4 h-4 text-gray-400" /> Mon profil IT <span className="ml-auto text-[10px] font-bold text-[#00b8d9]">NEW !</span>
-                    </Link>
-                    <Link href="/dashboard/candidat/cv" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
-                      <HiDocumentText className="w-4 h-4 text-gray-400" /> Mes documents
                     </Link>
                     <Link href="/dashboard/candidat/candidatures" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
                       <HiBriefcase className="w-4 h-4 text-gray-400" /> Mes candidatures

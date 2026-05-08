@@ -43,6 +43,7 @@ model ProfileCandidat {
   userId            String   @unique
   firstName         String
   lastName          String
+  email             String?
   title             String?
   bio               String?
   skills            String   @default("[]") // JSON array stored as string
@@ -54,12 +55,55 @@ model ProfileCandidat {
   phone             String?
   linkedIn          String?
   avatarUrl         String?
+  status            String   @default("DRAFT") // DRAFT | PUBLISHED
+  draftData         String?  // JSON object for saving draft progress
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences   Experience[]
+  educations    Education[]
 
   @@map("profiles_candidat")
+}
+
+// ─── Experience ────────────────────────────────
+
+model Experience {
+  id              String   @id @default(cuid())
+  profileId       String
+  title           String
+  company         String
+  location        String?
+  description     String?
+  startDate       DateTime?
+  endDate         DateTime?
+  currentlyWorking Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile ProfileCandidat @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("experiences")
+}
+
+// ─── Education ─────────────────────────────────
+
+model Education {
+  id          String   @id @default(cuid())
+  profileId   String
+  title       String   // Diploma/Degree title
+  school      String   // School/University name
+  field       String?  // Field of study
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile ProfileCandidat @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("educations")
 }
 
 // ─── Profile Recruteur ────────────────────────

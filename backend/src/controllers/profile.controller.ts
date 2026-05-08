@@ -359,3 +359,384 @@ export async function updateMySettings(req: Request, res: Response): Promise<voi
   }
 }
 
+// ─── Draft Profile Operations ──────────────
+
+const draftSchema = z.object({
+  form: z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    title: z.string().optional(),
+    bio: z.string().optional(),
+    skills: z.array(z.string()).optional(),
+    yearsOfExperience: z.number().optional(),
+    availability: z.string().optional(),
+    tjm: z.number().optional(),
+    location: z.string().optional(),
+    linkedIn: z.string().optional(),
+    portfolioUrl: z.string().optional(),
+  }).optional(),
+  experiences: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    company: z.string(),
+    period: z.string(),
+    desc: z.string(),
+  })).optional(),
+  educations: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    company: z.string(),
+    period: z.string(),
+    desc: z.string(),
+  })).optional(),
+  step: z.number().optional(),
+  done: z.array(z.number()).optional(),
+});
+
+export async function saveDraft(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const validation = draftSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const profile = await prisma.profileCandidat.upsert({
+      where: { userId },
+      update: {
+        draftData: JSON.stringify(validation.data),
+        updatedAt: new Date(),
+      },
+      create: {
+        userId,
+        firstName: validation.data.form?.firstName || "Non spécifié",
+        lastName: validation.data.form?.lastName || "Non spécifié",
+        draftData: JSON.stringify(validation.data),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Brouillon sauvegardé.",
+      data: profile,
+    });
+  } catch (error) {
+    console.error("[PROFILE] SaveDraft error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+export async function loadDraft(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const profile = await prisma.profileCandidat.findUnique({
+      where: { userId },
+      select: {
+        draftData: true,
+      },
+    });
+
+    if (!profile || !profile.draftData) {
+      res.json({
+        success: true,
+        data: null,
+        message: "Aucun brouillon trouvé.",
+      });
+      return;
+    }
+
+    const draftData = JSON.parse(profile.draftData);
+
+    res.json({
+      success: true,
+      data: draftData,
+    });
+  } catch (error) {
+    console.error("[PROFILE] LoadDraft error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+// ─── Publish Profile (Save from Draft) ─────
+
+export async function publishProfile(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const validation = updateCandidatSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const data: Record<string, unknown> = { ...validation.data };
+    if (data.skills && Array.isArray(data.skills)) {
+      data.skills = JSON.stringify(data.skills);
+    }
+    data.status = "PUBLISHED";
+    data.draftData = null; // Supprimer les données de brouillon après publication
+
+    const updatedProfile = await prisma.profileCandidat.update({
+      where: { userId },
+      data: data as any,
+    });
+
+    res.json({
+      success: true,
+      message: "Profil publié avec succès.",
+      data: updatedProfile,
+    });
+  } catch (error) {
+    console.error("[PROFILE] PublishProfile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+// ─── Experience Operations ─────────────────────
+
+const experienceSchema = z.object({
+  title: z.string().min(1),
+  company: z.string().min(1),
+  location: z.string().optional(),
+  description: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  currentlyWorking: z.boolean().optional(),
+});
+
+export async function createExperience(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const validation = experienceSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const profile = await prisma.profileCandidat.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      res.status(404).json({
+        success: false,
+        message: "Profil non trouvé.",
+      });
+      return;
+    }
+
+    const experience = await prisma.experience.create({
+      data: {
+        ...validation.data,
+        profileId: profile.id,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Expérience créée.",
+      data: experience,
+    });
+  } catch (error) {
+    console.error("[PROFILE] CreateExperience error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+export async function updateExperience(req: Request, res: Response): Promise<void> {
+  try {
+    const expId = req.params.id;
+
+    const validation = experienceSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const experience = await prisma.experience.update({
+      where: { id: expId },
+      data: validation.data,
+    });
+
+    res.json({
+      success: true,
+      message: "Expérience mise à jour.",
+      data: experience,
+    });
+  } catch (error) {
+    console.error("[PROFILE] UpdateExperience error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+export async function deleteExperience(req: Request, res: Response): Promise<void> {
+  try {
+    const expId = req.params.id;
+
+    await prisma.experience.delete({
+      where: { id: expId },
+    });
+
+    res.json({
+      success: true,
+      message: "Expérience supprimée.",
+    });
+  } catch (error) {
+    console.error("[PROFILE] DeleteExperience error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+// ─── Education Operations ──────────────────────
+
+const educationSchema = z.object({
+  title: z.string().min(1),
+  school: z.string().min(1),
+  field: z.string().optional(),
+  description: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+export async function createEducation(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+
+    const validation = educationSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const profile = await prisma.profileCandidat.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      res.status(404).json({
+        success: false,
+        message: "Profil non trouvé.",
+      });
+      return;
+    }
+
+    const education = await prisma.education.create({
+      data: {
+        ...validation.data,
+        profileId: profile.id,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Formation créée.",
+      data: education,
+    });
+  } catch (error) {
+    console.error("[PROFILE] CreateEducation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+export async function updateEducation(req: Request, res: Response): Promise<void> {
+  try {
+    const eduId = req.params.id;
+
+    const validation = educationSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: "Données invalides.",
+        errors: validation.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const education = await prisma.education.update({
+      where: { id: eduId },
+      data: validation.data,
+    });
+
+    res.json({
+      success: true,
+      message: "Formation mise à jour.",
+      data: education,
+    });
+  } catch (error) {
+    console.error("[PROFILE] UpdateEducation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}
+
+export async function deleteEducation(req: Request, res: Response): Promise<void> {
+  try {
+    const eduId = req.params.id;
+
+    await prisma.education.delete({
+      where: { id: eduId },
+    });
+
+    res.json({
+      success: true,
+      message: "Formation supprimée.",
+    });
+  } catch (error) {
+    console.error("[PROFILE] DeleteEducation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur interne du serveur.",
+    });
+  }
+}

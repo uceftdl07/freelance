@@ -112,7 +112,7 @@ export default function ProfileBuilder() {
     const loadProfileDraft = async () => {
       if (!token) return;
       try {
-        const res = await fetch(`${API_BASE}/profiles/draft`, {
+        const res = await fetch(`${API_BASE}/profile/draft`, {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
@@ -159,7 +159,7 @@ export default function ProfileBuilder() {
   useEffect(() => {
     const saveProfileDraft = async () => {
       try {
-        await fetch(`${API_BASE}/profiles/draft`, {
+        await fetch(`${API_BASE}/profile/draft`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -249,7 +249,7 @@ export default function ProfileBuilder() {
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      const res = await fetch(`${API_BASE}/profiles`, {
+      const res = await fetch(`${API_BASE}/profile/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

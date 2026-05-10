@@ -1,780 +1,195 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
 
 const prisma = new PrismaClient();
 
 function isPreparedStatementPoolError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    message.includes('prepared statement') &&
-    (message.includes('does not exist') || message.includes('already exists'))
+    message.includes("prepared statement") &&
+    (message.includes("does not exist") || message.includes("already exists"))
   );
 }
 
-// ─── Validation Schemas ───────────────────────
-
-const updateCandidatSchema = z.object({
-  firstName: z.string().min(2).trim().optional(),
-  lastName: z.string().min(2).trim().optional(),
-  title: z.string().trim().optional(),
-  bio: z.string().optional(),
-  skills: z.array(z.string()).optional(),
-  yearsOfExperience: z.number().int().min(0).max(50).optional(),
-  availability: z
-    .enum(["DISPONIBLE", "EN_MISSION", "BIENTOT_DISPONIBLE"])
-    .optional(),
-  portfolioUrl: z.string().url().optional().or(z.literal("")),
-  tjm: z.number().int().min(0).optional(),
-  location: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
-  linkedIn: z.string().url().optional().or(z.literal("")),
-});
-
-const updateRecruteurSchema = z.object({
-  firstName: z.string().min(2).trim().optional(),
-  lastName: z.string().min(2).trim().optional(),
-  company: z.string().trim().optional(),
-  position: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
-  website: z.string().url().optional().or(z.literal("")),
-});
-
-const candidateSettingsSchema = z.object({
-  notifications: z.object({
-    newMissions: z.boolean(),
-    recruiterMessages: z.boolean(),
-  }),
-  visibility: z.enum(["PUBLIC", "PRIVATE", "RECRUITERS_ONLY"]),
-  appearance: z.object({
-    language: z.string().min(2).max(5),
-    darkMode: z.boolean(),
-  }),
-});
-
-let settingsTableReady = false;
-
-async function ensureSettingsTable(): Promise<void> {
-  if (settingsTableReady) return;
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS user_settings (
-      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      data JSONB NOT NULL DEFAULT '{}'::jsonb,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  settingsTableReady = true;
-}
-
-// ─── Get My Profile ───────────────────────────
-
-export async function getMyProfile(
-  req: Request,
-  res: Response
-): Promise<void> {
+async function withPreparedStatementRetry<T>(query: () => Promise<T>): Promise<T> {
   try {
-    const userId = req.user!.userId;
-    const role = req.user!.role;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        profileCandidat:
-          role === "CANDIDAT"
-            ? {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  title: true,
-                  bio: true,
-                  skills: true,
-                  yearsOfExperience: true,
-                  availability: true,
-                  portfolioUrl: true,
-                  tjm: true,
-                  location: true,
-                  phone: true,
-                  linkedIn: true,
-                  avatarUrl: true,
-                },
-              }
-            : false,
-        profileRecruteur:
-          role === "RECRUTEUR"
-            ? {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  company: true,
-                  position: true,
-                  phone: true,
-                  website: true,
-                  avatarUrl: true,
-                },
-              }
-            : false,
-      },
-    });
-
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        message: "Utilisateur non trouvé.",
-      });
-      return;
+    return await query();
+  } catch (error) {
+    if (!isPreparedStatementPoolError(error)) {
+      throw error;
     }
 
-    const profile =
-      role === "CANDIDAT" ? user.profileCandidat : user.profileRecruteur;
-
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
-        profile,
-      },
-    });
-  } catch (error) {
-    console.error("[PROFILE] GetMyProfile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
+    console.warn("[PROFILES] Retrying query after prepared-statement error");
+    await prisma.$disconnect();
+    return query();
   }
 }
 
-// ─── Update My Profile ────────────────────────
-
-export async function updateMyProfile(
-  req: Request,
-  res: Response
-): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-    const role = req.user!.role;
-
-    if (role === "CANDIDAT") {
-      const validation = updateCandidatSchema.safeParse(req.body);
-      if (!validation.success) {
-        res.status(400).json({
-          success: false,
-          message: "Données invalides.",
-          errors: validation.error.flatten().fieldErrors,
-        });
-        return;
-      }
-
-      const data: Record<string, unknown> = { ...validation.data };
-      if (data.skills && Array.isArray(data.skills)) {
-        data.skills = JSON.stringify(data.skills);
-      }
-
-      const updatedProfile = await prisma.profileCandidat.update({
-        where: { userId },
-        data: data as any,
-      });
-
-      res.json({
-        success: true,
-        message: "Profil mis à jour.",
-        data: updatedProfile,
-      });
-    } else {
-      const validation = updateRecruteurSchema.safeParse(req.body);
-      if (!validation.success) {
-        res.status(400).json({
-          success: false,
-          message: "Données invalides.",
-          errors: validation.error.flatten().fieldErrors,
-        });
-        return;
-      }
-
-      const updatedProfile = await prisma.profileRecruteur.update({
-        where: { userId },
-        data: validation.data,
-      });
-
-      res.json({
-        success: true,
-        message: "Profil mis à jour.",
-        data: updatedProfile,
-      });
-    }
-  } catch (error) {
-    console.error("[PROFILE] UpdateMyProfile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
+/**
+ * Helper: skills are stored as JSON string in SQLite
+ */
+function parseSkills(raw: string | null): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
 }
 
-// ─── Get Public Profile ───────────────────────
-
-export async function getPublicProfile(
-  req: Request,
-  res: Response
-): Promise<void> {
-  try {
-    const id = req.params.id as string;
-
-    const queryPublicUser = () => prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-        profileCandidat: {
-          select: {
-            firstName: true,
-            lastName: true,
-            title: true,
-            bio: true,
-            skills: true,
-            yearsOfExperience: true,
-            availability: true,
-            portfolioUrl: true,
-            tjm: true,
-            location: true,
-            linkedIn: true,
-            avatarUrl: true,
-          },
-        },
-        profileRecruteur: {
-          select: {
-            firstName: true,
-            lastName: true,
-            company: true,
-            position: true,
-            website: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    });
-
-    let user;
+function serializeSkills(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return JSON.stringify(raw.filter((s): s is string => typeof s === "string"));
+  }
+  if (typeof raw === "string") {
     try {
-      user = await queryPublicUser();
-    } catch (error) {
-      if (!isPreparedStatementPoolError(error)) {
-        throw error;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return JSON.stringify(parsed.filter((s): s is string => typeof s === "string"));
       }
-
-      // Retry once after reconnect to handle transient pooler prepared-statement mismatch.
-      console.warn("[PROFILE] Retrying public profile query after prepared-statement error");
-      await prisma.$disconnect();
-      user = await queryPublicUser();
+    } catch {
+      return JSON.stringify(raw.split(",").map((s) => s.trim()).filter(Boolean));
     }
-
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        message: "Profil non trouvé.",
-      });
-      return;
-    }
-
-    const profile =
-      user.role === "CANDIDAT"
-        ? (user as any).profileCandidat
-        : (user as any).profileRecruteur;
-
-    res.json({
-      success: true,
-      data: {
-        id: user.id,
-        role: user.role,
-        createdAt: user.createdAt,
-        profile,
-      },
-    });
-  } catch (error) {
-    console.error("[PROFILE] GetPublicProfile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
   }
+  return "[]";
 }
 
-// ─── Candidate Settings (Server Persistence) ───
-
-export async function getMySettings(req: Request, res: Response): Promise<void> {
+/**
+ * POST /api/profiles
+ * Create or update a candidate profile in SQLite via Prisma
+ */
+export async function createPublicProfile(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user!.userId;
-    const role = req.user!.role;
-
-    if (role !== "CANDIDAT") {
-      res.status(403).json({ success: false, message: "Réservé aux candidats." });
+    const authUser = req.user;
+    if (!authUser) {
+      res.status(401).json({ success: false, message: "Accès non autorisé." });
+      return;
+    }
+    if (authUser.role !== "CANDIDAT") {
+      res.status(403).json({ success: false, message: "Seuls les candidats peuvent publier un profil candidat." });
       return;
     }
 
-    await ensureSettingsTable();
+    const {
+      firstName, lastName, phone, title, bio,
+      skills, yearsOfExperience, availability,
+      portfolioUrl, tjm, location, linkedIn,
+    } = req.body;
 
-    const rows = await prisma.$queryRawUnsafe<Array<{ data: unknown }>>(
-      `SELECT data FROM user_settings WHERE user_id = $1 LIMIT 1;`,
-      userId
-    );
-
-    res.json({
-      success: true,
-      data: {
-        settings: rows[0]?.data || null,
-      },
-    });
-  } catch (error) {
-    console.error("[PROFILE] GetMySettings error:", error);
-    res.status(500).json({ success: false, message: "Erreur interne du serveur." });
-  }
-}
-
-export async function updateMySettings(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-    const role = req.user!.role;
-
-    if (role !== "CANDIDAT") {
-      res.status(403).json({ success: false, message: "Réservé aux candidats." });
+    if (!firstName || !lastName) {
+      res.status(400).json({ success: false, message: "Prénom et nom requis." });
       return;
     }
 
-    const validation = candidateSettingsSchema.safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
+    // Build skills JSON string
+    const skillsJson = serializeSkills(skills);
+    const yoe = typeof yearsOfExperience === "number" ? yearsOfExperience : (yearsOfExperience ? parseInt(yearsOfExperience) : null);
+    const tjmVal = typeof tjm === "number" ? tjm : (tjm ? parseInt(tjm) : null);
+    const avail = availability || "DISPONIBLE";
 
-    await ensureSettingsTable();
-
-    await prisma.$executeRawUnsafe(
-      `
-        INSERT INTO user_settings (user_id, data, updated_at)
-        VALUES ($1, $2::jsonb, NOW())
-        ON CONFLICT (user_id)
-        DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();
-      `,
-      userId,
-      JSON.stringify(validation.data)
-    );
-
-    res.json({ success: true, message: "Paramètres enregistrés.", data: { settings: validation.data } });
-  } catch (error) {
-    console.error("[PROFILE] UpdateMySettings error:", error);
-    res.status(500).json({ success: false, message: "Erreur interne du serveur." });
-  }
-}
-
-// ─── Draft Profile Operations ──────────────
-
-const draftSchema = z.object({
-  form: z.object({
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    title: z.string().optional(),
-    bio: z.string().optional(),
-    skills: z.array(z.string()).optional(),
-    yearsOfExperience: z.number().optional(),
-    availability: z.string().optional(),
-    tjm: z.number().optional(),
-    location: z.string().optional(),
-    linkedIn: z.string().optional(),
-    portfolioUrl: z.string().optional(),
-  }).optional(),
-  experiences: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    company: z.string(),
-    period: z.string(),
-    desc: z.string(),
-  })).optional(),
-  educations: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    company: z.string(),
-    period: z.string(),
-    desc: z.string(),
-  })).optional(),
-  step: z.number().optional(),
-  done: z.array(z.number()).optional(),
-});
-
-export async function saveDraft(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-
-    const validation = draftSchema.safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    const profile = await prisma.profileCandidat.upsert({
-      where: { userId },
+    // Upsert profile
+    const profile = await withPreparedStatementRetry(() => prisma.profileCandidat.upsert({
+      where: { userId: authUser.userId },
       update: {
-        draftData: JSON.stringify(validation.data),
-        updatedAt: new Date(),
+        firstName, lastName, title, bio,
+        skills: skillsJson,
+        yearsOfExperience: yoe,
+        availability: avail,
+        portfolioUrl, tjm: tjmVal,
+        location, phone, linkedIn,
       },
       create: {
-        userId,
-        firstName: validation.data.form?.firstName || "Non spécifié",
-        lastName: validation.data.form?.lastName || "Non spécifié",
-        draftData: JSON.stringify(validation.data),
+        userId: authUser.userId,
+        firstName, lastName, title, bio,
+        skills: skillsJson,
+        yearsOfExperience: yoe,
+        availability: avail,
+        portfolioUrl, tjm: tjmVal,
+        location, phone, linkedIn,
       },
-    });
+    }));
 
+    // Return with parsed skills array
     res.json({
       success: true,
-      message: "Brouillon sauvegardé.",
-      data: profile,
+      message: "Profil publié avec succès !",
+      data: { ...profile, skills: parseSkills(profile.skills) },
     });
   } catch (error) {
-    console.error("[PROFILE] SaveDraft error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
+    console.error("[PROFILES] CreatePublicProfile error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors de la sauvegarde." });
   }
 }
 
-export async function loadDraft(req: Request, res: Response): Promise<void> {
+/**
+ * GET /api/profiles
+ * List candidates from SQLite with filtering
+ */
+export async function listPublicProfiles(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user!.userId;
+    const { skills, availability, location, search, minExperience, maxExperience } = req.query;
 
-    const profile = await prisma.profileCandidat.findUnique({
-      where: { userId },
-      select: {
-        draftData: true,
-      },
-    });
+    // Build Prisma where clause
+    const where: any = {};
 
-    if (!profile || !profile.draftData) {
-      res.json({
-        success: true,
-        data: null,
-        message: "Aucun brouillon trouvé.",
-      });
-      return;
+    // Experience range
+    if (minExperience) {
+      where.yearsOfExperience = { ...where.yearsOfExperience, gte: parseInt(minExperience as string) };
+    }
+    if (maxExperience && parseInt(maxExperience as string) < 20) {
+      where.yearsOfExperience = { ...where.yearsOfExperience, lte: parseInt(maxExperience as string) };
     }
 
-    const draftData = JSON.parse(profile.draftData);
+    // Availability filter
+    if (availability && typeof availability === "string") {
+      const availList = availability.split(",").map((a) => a.trim()).filter(Boolean);
+      if (availList.length > 0) {
+        where.availability = { in: availList };
+      }
+    }
+
+    // Location filter (contains, case-insensitive)
+    if (location && typeof location === "string") {
+      where.location = { contains: location };
+    }
+
+    // Text search (name, title)
+    if (search && typeof search === "string") {
+      where.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { title: { contains: search } },
+      ];
+    }
+
+    // Fetch from DB
+    const profiles = await withPreparedStatementRetry(() => prisma.profileCandidat.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }));
+
+    // Parse skills JSON and apply skills filter (post-query for SQLite)
+    let results = profiles.map((p) => ({
+      ...p,
+      skills: parseSkills(p.skills),
+    }));
+
+    // Skills filter (SQLite doesn't support array contains, so filter in JS)
+    if (skills && typeof skills === "string") {
+      const skillList = skills.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+      if (skillList.length > 0) {
+        results = results.filter((c) =>
+          skillList.some((s) => c.skills.map((cs) => cs.toLowerCase()).includes(s))
+        );
+      }
+    }
 
     res.json({
       success: true,
-      data: draftData,
-    });
-  } catch (error) {
-    console.error("[PROFILE] LoadDraft error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-// ─── Publish Profile (Save from Draft) ─────
-
-export async function publishProfile(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-
-    const validation = updateCandidatSchema.safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    // Vérifier que firstName et lastName sont présents
-    if (!validation.data.firstName || !validation.data.lastName) {
-      res.status(400).json({
-        success: false,
-        message: "Le prénom et le nom sont obligatoires.",
-      });
-      return;
-    }
-
-    const data: Record<string, unknown> = { ...validation.data };
-    if (data.skills && Array.isArray(data.skills)) {
-      data.skills = JSON.stringify(data.skills);
-    }
-    data.status = "PUBLISHED";
-    data.draftData = null; // Supprimer les données de brouillon après publication
-
-    const updatedProfile = await prisma.profileCandidat.upsert({
-      where: { userId },
-      update: data as any,
-      create: {
-        userId,
-        firstName: validation.data.firstName!,
-        lastName: validation.data.lastName!,
-        ...(data as any),
-      },
-    });
-
-    res.json({
-      success: true,
-      message: "Profil publié avec succès.",
-      data: updatedProfile,
-    });
-  } catch (error) {
-    console.error("[PROFILE] PublishProfile error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-      error: process.env.NODE_ENV === "development" ? error : undefined,
-    });
-  }
-}
-
-// ─── Experience Operations ─────────────────────
-
-const experienceSchema = z.object({
-  title: z.string().min(1),
-  company: z.string().min(1),
-  location: z.string().optional(),
-  description: z.string().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  currentlyWorking: z.boolean().optional(),
-});
-
-export async function createExperience(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-
-    const validation = experienceSchema.safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    const profile = await prisma.profileCandidat.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!profile) {
-      res.status(404).json({
-        success: false,
-        message: "Profil non trouvé.",
-      });
-      return;
-    }
-
-    const experience = await prisma.experience.create({
       data: {
-        ...validation.data,
-        profileId: profile.id,
+        candidates: results,
+        pagination: { page: 1, limit: 50, total: results.length, totalPages: 1 },
       },
     });
-
-    res.json({
-      success: true,
-      message: "Expérience créée.",
-      data: experience,
-    });
   } catch (error) {
-    console.error("[PROFILE] CreateExperience error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-export async function updateExperience(req: Request, res: Response): Promise<void> {
-  try {
-    const expId = req.params.id;
-
-    const validation = experienceSchema.partial().safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    const experience = await prisma.experience.update({
-      where: { id: expId },
-      data: validation.data,
-    });
-
-    res.json({
-      success: true,
-      message: "Expérience mise à jour.",
-      data: experience,
-    });
-  } catch (error) {
-    console.error("[PROFILE] UpdateExperience error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-export async function deleteExperience(req: Request, res: Response): Promise<void> {
-  try {
-    const expId = req.params.id;
-
-    await prisma.experience.delete({
-      where: { id: expId },
-    });
-
-    res.json({
-      success: true,
-      message: "Expérience supprimée.",
-    });
-  } catch (error) {
-    console.error("[PROFILE] DeleteExperience error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-// ─── Education Operations ──────────────────────
-
-const educationSchema = z.object({
-  title: z.string().min(1),
-  school: z.string().min(1),
-  field: z.string().optional(),
-  description: z.string().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-});
-
-export async function createEducation(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user!.userId;
-
-    const validation = educationSchema.safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    const profile = await prisma.profileCandidat.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!profile) {
-      res.status(404).json({
-        success: false,
-        message: "Profil non trouvé.",
-      });
-      return;
-    }
-
-    const education = await prisma.education.create({
-      data: {
-        ...validation.data,
-        profileId: profile.id,
-      },
-    });
-
-    res.json({
-      success: true,
-      message: "Formation créée.",
-      data: education,
-    });
-  } catch (error) {
-    console.error("[PROFILE] CreateEducation error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-export async function updateEducation(req: Request, res: Response): Promise<void> {
-  try {
-    const eduId = req.params.id;
-
-    const validation = educationSchema.partial().safeParse(req.body);
-    if (!validation.success) {
-      res.status(400).json({
-        success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return;
-    }
-
-    const education = await prisma.education.update({
-      where: { id: eduId },
-      data: validation.data,
-    });
-
-    res.json({
-      success: true,
-      message: "Formation mise à jour.",
-      data: education,
-    });
-  } catch (error) {
-    console.error("[PROFILE] UpdateEducation error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
-  }
-}
-
-export async function deleteEducation(req: Request, res: Response): Promise<void> {
-  try {
-    const eduId = req.params.id;
-
-    await prisma.education.delete({
-      where: { id: eduId },
-    });
-
-    res.json({
-      success: true,
-      message: "Formation supprimée.",
-    });
-  } catch (error) {
-    console.error("[PROFILE] DeleteEducation error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur interne du serveur.",
-    });
+    console.error("[PROFILES] ListPublicProfiles error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors de la recherche." });
   }
 }

@@ -4,6 +4,14 @@ import { z } from "zod";
 
 const prisma = new PrismaClient();
 
+function isPreparedStatementPoolError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('prepared statement') &&
+    (message.includes('does not exist') || message.includes('already exists'))
+  );
+}
+
 // ─── Validation Schemas ───────────────────────
 
 const updateCandidatSchema = z.object({
@@ -222,7 +230,7 @@ export async function getPublicProfile(
   try {
     const id = req.params.id as string;
 
-    const user = await prisma.user.findUnique({
+    const queryPublicUser = () => prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -256,6 +264,20 @@ export async function getPublicProfile(
         },
       },
     });
+
+    let user;
+    try {
+      user = await queryPublicUser();
+    } catch (error) {
+      if (!isPreparedStatementPoolError(error)) {
+        throw error;
+      }
+
+      // Retry once after reconnect to handle transient pooler prepared-statement mismatch.
+      console.warn("[PROFILE] Retrying public profile query after prepared-statement error");
+      await prisma.$disconnect();
+      user = await queryPublicUser();
+    }
 
     if (!user) {
       res.status(404).json({

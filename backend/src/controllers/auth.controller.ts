@@ -9,6 +9,27 @@ import { sendVerificationEmail } from "../utils/email";
 import { env } from "../config/env";
 
 const prisma = new PrismaClient();
+
+// ─── Prepared-statement pool retry (Supabase/pgBouncer) ───────────────────────
+function isPreparedStatementPoolError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("prepared statement") &&
+    (message.includes("does not exist") || message.includes("already exists"))
+  );
+}
+
+async function withRetry<T>(query: () => Promise<T>, label = "query"): Promise<T> {
+  try {
+    return await query();
+  } catch (error) {
+    if (!isPreparedStatementPoolError(error)) throw error;
+    console.warn(`[AUTH] Retrying ${label} after prepared-statement error`);
+    await prisma.$disconnect();
+    return query();
+  }
+}
+
 const googleClient = new OAuth2Client(
   env.GOOGLE_CLIENT_ID,
   env.GOOGLE_CLIENT_SECRET,
@@ -82,9 +103,10 @@ export async function register(req: Request, res: Response): Promise<void> {
       validation.data;
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await withRetry(
+      () => prisma.user.findUnique({ where: { email } }),
+      "findExistingUser"
+    );
 
     if (existingUser) {
       res.status(409).json({
@@ -102,7 +124,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
     // Create user + profile in a transaction
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await withRetry(() => prisma.$transaction(async (tx) => {
       // Create user (must verify email before login)
       const newUser = await tx.user.create({
         data: {
@@ -136,7 +158,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       }
 
       return newUser;
-    });
+    }), "registerTransaction");
 
     // Send verification email
     try {
@@ -176,9 +198,10 @@ export async function verifyEmail(
     }
 
     // Find user by verification token
-    const user = await prisma.user.findFirst({
-      where: { verificationToken: token },
-    });
+    const user = await withRetry(
+      () => prisma.user.findFirst({ where: { verificationToken: token } }),
+      "findUserByToken"
+    );
 
     if (!user) {
       res.status(400).json({
@@ -197,13 +220,13 @@ export async function verifyEmail(
     }
 
     // Mark as verified and clear token
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        isVerified: true,
-        verificationToken: null,
-      },
-    });
+    await withRetry(
+      () => prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true, verificationToken: null },
+      }),
+      "verifyUser"
+    );
 
     res.json({
       success: true,
@@ -236,9 +259,10 @@ export async function login(req: Request, res: Response): Promise<void> {
     const { email, password } = validation.data;
 
     // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await withRetry(
+      () => prisma.user.findUnique({ where: { email } }),
+      "findUserByEmail"
+    );
 
     if (!user) {
       res.status(401).json({
@@ -361,31 +385,29 @@ export async function googleLogin(
     const userEmail = email!.toLowerCase().trim();
 
     // Check if user already exists (by Google ID or email)
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { googleId: googleId },
-          { email: userEmail },
-        ],
-      },
-    });
+    let user = await withRetry(
+      () => prisma.user.findFirst({
+        where: { OR: [{ googleId: googleId }, { email: userEmail }] },
+      }),
+      "findGoogleUser"
+    );
 
     if (user) {
       // Link Google ID if not already linked
       if (!user.googleId) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            googleId: googleId,
-            isVerified: true, // Google-verified email
-          },
-        });
+        user = await withRetry(
+          () => prisma.user.update({
+            where: { id: user!.id },
+            data: { googleId: googleId, isVerified: true },
+          }),
+          "linkGoogleId"
+        );
       }
     } else {
       // Create new user — Google users are auto-verified
       const userRole = role === "RECRUTEUR" ? "RECRUTEUR" : "CANDIDAT";
 
-      user = await prisma.$transaction(async (tx) => {
+      user = await withRetry(() => prisma.$transaction(async (tx) => {
         const newUser = await tx.user.create({
           data: {
             email: userEmail,
@@ -418,10 +440,8 @@ export async function googleLogin(
         }
 
         return newUser;
-      });
+      }), "googleRegisterTransaction");
     }
-
-    // Generate JWT
     const token = signToken({
       userId: user.id,
       email: user.email,
@@ -466,9 +486,10 @@ export async function resendVerification(
       return;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
+    const user = await withRetry(
+      () => prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } }),
+      "findUserForResend"
+    );
 
     if (!user) {
       // Don't reveal if user exists
@@ -489,10 +510,10 @@ export async function resendVerification(
 
     // Generate new token
     const verificationToken = crypto.randomBytes(32).toString("hex");
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { verificationToken },
-    });
+    await withRetry(
+      () => prisma.user.update({ where: { id: user.id }, data: { verificationToken } }),
+      "updateVerificationToken"
+    );
 
     // Send email
     await sendVerificationEmail(user.email, verificationToken);
@@ -528,7 +549,10 @@ export async function changePassword(req: Request, res: Response): Promise<void>
 
     const { currentPassword, newPassword } = validation.data;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await withRetry(
+      () => prisma.user.findUnique({ where: { id: userId } }),
+      "findUserForPasswordChange"
+    );
     if (!user) {
       res.status(404).json({ success: false, message: "Utilisateur introuvable." });
       return;
@@ -560,10 +584,10 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedPassword },
-    });
+    await withRetry(
+      () => prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } }),
+      "updatePassword"
+    );
 
     res.json({ success: true, message: "Mot de passe modifié avec succès." });
   } catch (error) {

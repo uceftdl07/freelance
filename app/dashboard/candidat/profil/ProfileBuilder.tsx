@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "../../../lib/AuthContext";
+import { useAuth } from "../../../../lib/AuthContext";
 import {
   HiDocumentArrowUp, HiUser, HiBriefcase, HiClock, HiAcademicCap,
   HiWrenchScrewdriver, HiCheckCircle, HiChevronLeft, HiChevronRight,

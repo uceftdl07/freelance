@@ -333,21 +333,31 @@ export default function ProfileBuilder() {
         return;
       }
 
-      // Préparer les données pour l'API
-      const payload = {
+      // Snapshot strictement compatible avec FormData (pas de null)
+      const uiSnapshot: FormData = {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim(),
-        phone: form.phone?.trim() || null,
+        phone: form.phone.trim(),
         title: form.title.trim(),
-        bio: form.bio?.trim() || null,
+        bio: form.bio.trim(),
         skills: form.skills || [],
         yearsOfExperience: form.yearsOfExperience || 0,
         availability: form.availability || "DISPONIBLE",
         tjm: form.tjm || 0,
-        location: form.location?.trim() || null,
-        linkedIn: form.linkedIn?.trim() || null,
-        portfolioUrl: form.portfolioUrl?.trim() || null,
+        location: form.location.trim(),
+        linkedIn: form.linkedIn.trim(),
+        portfolioUrl: form.portfolioUrl.trim(),
+      };
+
+      // Payload API (nullable autorise les champs optionnels côté backend)
+      const payload = {
+        ...uiSnapshot,
+        phone: uiSnapshot.phone || null,
+        bio: uiSnapshot.bio || null,
+        location: uiSnapshot.location || null,
+        linkedIn: uiSnapshot.linkedIn || null,
+        portfolioUrl: uiSnapshot.portfolioUrl || null,
       };
 
       console.log("📤 Envoi des données au serveur...", payload);
@@ -391,11 +401,11 @@ export default function ProfileBuilder() {
         setPublished(true);
 
         // Re-hydrate l'état local avec les données publiées pour éviter une vue vide au retour
-        setForm((prev) => ({ ...prev, ...payload }));
+        setForm((prev) => ({ ...prev, ...uiSnapshot }));
 
         // On conserve experiences/educations localement pour l'instant
         // (elles ne sont pas encore publiées via un endpoint dédié dans ce flow)
-        localStorage.setItem(STORAGE_KEYS.form, JSON.stringify({ ...form, ...payload }));
+        localStorage.setItem(STORAGE_KEYS.form, JSON.stringify({ ...form, ...uiSnapshot }));
 
         setTimeout(() => {
           router.push("/dashboard/candidat");

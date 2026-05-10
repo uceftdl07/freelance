@@ -12,16 +12,17 @@ function isPreparedStatementPoolError(error: unknown): boolean {
   );
 }
 
-async function withPrismaRetry<T>(query: () => Promise<T>): Promise<T> {
+async function withRetry<T>(query: () => Promise<T>, label = "query"): Promise<T> {
   try {
     return await query();
   } catch (error) {
     if (!isPreparedStatementPoolError(error)) throw error;
-    console.warn("[PROFILE] Retrying query after prepared-statement pool error");
+    console.warn(`[PROFILE] Retrying ${label} after prepared-statement error`);
     await prisma.$disconnect();
     return query();
   }
 }
+
 
 // ─── Validation Schemas ───────────────────────
 
@@ -89,7 +90,7 @@ export async function getMyProfile(
     const userId = req.user!.userId;
     const role = req.user!.role;
 
-    const user = await withPrismaRetry(() => prisma.user.findUnique({
+    const user = await withRetry(() => prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -442,7 +443,7 @@ export async function saveDraft(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const profile = await prisma.profileCandidat.upsert({
+    const profile = await withRetry(() => prisma.profileCandidat.upsert({
       where: { userId },
       update: {
         draftData: JSON.stringify(validation.data),
@@ -454,7 +455,7 @@ export async function saveDraft(req: Request, res: Response): Promise<void> {
         lastName: validation.data.form?.lastName || "Non spécifié",
         draftData: JSON.stringify(validation.data),
       },
-    });
+    }), "saveDraft");
 
     res.json({
       success: true,
@@ -474,12 +475,10 @@ export async function loadDraft(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
 
-    const profile = await withPrismaRetry(() => prisma.profileCandidat.findUnique({
+    const profile = await withRetry(() => prisma.profileCandidat.findUnique({
       where: { userId },
-      select: {
-        draftData: true,
-      },
-    }));
+      select: { draftData: true },
+    }), "loadDraft");
 
     if (!profile || !profile.draftData) {
       res.json({
@@ -538,7 +537,7 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
     // Note: draftData is intentionally preserved so the completion bar
     // remains accurate on the dashboard after publishing.
 
-    const updatedProfile = await withPrismaRetry(() => prisma.profileCandidat.upsert({
+    const updatedProfile = await withRetry(() => prisma.profileCandidat.upsert({
       where: { userId },
       update: data as any,
       create: {
@@ -547,7 +546,7 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
         lastName: validation.data.lastName!,
         ...(data as any),
       },
-    }));
+    }), "publishProfile");
 
     res.json({
       success: true,

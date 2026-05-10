@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../lib/AuthContext";
 import {
   HiDocumentArrowUp, HiUser, HiBriefcase, HiClock, HiAcademicCap,
@@ -62,6 +62,7 @@ const STORAGE_KEYS = {
 
 export default function ProfileBuilder() {
   const { token } = useAuth();
+  const searchParams = useSearchParams();
 
   const hydrateFormFromProfile = useCallback((profile: any, fallbackEmail?: string) => {
     if (!profile) return;
@@ -142,6 +143,17 @@ export default function ProfileBuilder() {
   });
 
   const router = useRouter();
+
+  useEffect(() => {
+    const stepParam = searchParams.get("step");
+    if (!stepParam) return;
+
+    const parsedStep = Number(stepParam);
+    if (!Number.isInteger(parsedStep)) return;
+    if (parsedStep < 0 || parsedStep > 5) return;
+
+    setStep(parsedStep);
+  }, [searchParams]);
 
   // Charger le brouillon sauvegardé depuis la base de données au démarrage
   useEffect(() => {

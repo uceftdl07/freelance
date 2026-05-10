@@ -174,16 +174,14 @@ export async function register(req: Request, res: Response): Promise<void> {
       throw profileErr;
     }
 
-    // Send verification email
-    try {
-      await sendVerificationEmail(newUser.email, verificationToken);
-    } catch (emailErr) {
-      console.error("[AUTH] Failed to send verification email:", emailErr);
-    }
-
     res.status(201).json({
       success: true,
       message: "Inscription réussie ! Vérifiez votre email pour activer votre compte.",
+    });
+
+    // Send verification email asynchronously so SMTP issues never block signup.
+    void sendVerificationEmail(newUser.email, verificationToken).catch((emailErr) => {
+      console.error("[AUTH] Failed to send verification email:", emailErr);
     });
   } catch (error) {
     console.error("[AUTH] Register error:", error instanceof Error ? error.message : error);
@@ -545,12 +543,14 @@ export async function resendVerification(
       "updateVerificationToken"
     );
 
-    // Send email
-    await sendVerificationEmail(user.email, verificationToken);
-
     res.json({
       success: true,
       message: "Un nouveau lien de vérification a été envoyé à votre adresse email.",
+    });
+
+    // Send asynchronously to avoid blocking the API on SMTP/network issues.
+    void sendVerificationEmail(user.email, verificationToken).catch((emailErr) => {
+      console.error("[AUTH] Failed to resend verification email:", emailErr);
     });
   } catch (error) {
     console.error("[AUTH] Resend verification error:", error);

@@ -3,6 +3,11 @@ import { env } from "../config/env";
 
 let transporter: nodemailer.Transporter | null = null;
 
+function isEmailConfigured(): boolean {
+  if (env.isDev) return true;
+  return env.isSmtpConfigured;
+}
+
 /**
  * Initialize the email transporter.
  * In development: creates an Ethereal test account (no real emails sent).
@@ -25,15 +30,22 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
     });
     console.log("[EMAIL] ✉️  Ethereal test account created:", testAccount.user);
   } else {
+    if (!isEmailConfigured()) {
+      throw new Error("SMTP_NOT_CONFIGURED");
+    }
+
     // Production: configure with real SMTP
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.SMTP_PORT || "587"),
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS,
       },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 8000,
     });
   }
 
@@ -47,6 +59,11 @@ export async function sendVerificationEmail(
   to: string,
   token: string
 ): Promise<void> {
+  if (!isEmailConfigured()) {
+    console.warn("[EMAIL] SMTP not configured; verification email skipped.");
+    return;
+  }
+
   const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${token}`;
   const transport = await getTransporter();
 
@@ -114,7 +131,7 @@ export async function sendVerificationEmail(
   `;
 
   const info = await transport.sendMail({
-    from: '"FreelanceIT" <noreply@freelanceit.fr>',
+    from: env.SMTP_FROM,
     to,
     subject: "Vérifiez votre email — FreelanceIT",
     html,

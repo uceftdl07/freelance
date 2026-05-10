@@ -134,7 +134,7 @@ export async function getMyProfile(
               }
             : false,
       },
-    });
+    }), "getMyProfile");
 
     if (!user) {
       res.status(404).json({
@@ -158,7 +158,7 @@ export async function getMyProfile(
       },
     });
   } catch (error) {
-    console.error("[PROFILE] GetMyProfile error:", error);
+    console.error("[PROFILE] GetMyProfile error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",

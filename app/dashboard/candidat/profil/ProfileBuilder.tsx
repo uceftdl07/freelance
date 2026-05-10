@@ -415,8 +415,7 @@ export default function ProfileBuilder() {
         // Re-hydrate l'état local avec les données publiées pour éviter une vue vide au retour
         setForm((prev) => ({ ...prev, ...uiSnapshot }));
 
-        // On conserve experiences/educations localement pour l'instant
-        // (elles ne sont pas encore publiées via un endpoint dédié dans ce flow)
+        // Ne pas vider localStorage : les données servent encore à la barre de complétion du dashboard
         localStorage.setItem(STORAGE_KEYS.form, JSON.stringify({ ...form, ...uiSnapshot }));
 
         setTimeout(() => {

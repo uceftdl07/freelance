@@ -123,46 +123,60 @@ export async function register(req: Request, res: Response): Promise<void> {
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
-    // Create user + profile in a transaction
-    const user = await withRetry(() => prisma.$transaction(async (tx) => {
-      // Create user (must verify email before login)
-      const newUser = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          role,
-          isVerified: false,
-          verificationToken,
-        },
-      });
+    // Create user — sequential ops instead of transaction to avoid pgBouncer issues
+    const newUser = await withRetry(
+      () =>
+        prisma.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            role,
+            isVerified: false,
+            verificationToken,
+          },
+        }),
+      "createUser"
+    );
 
-      // Create role-specific profile
+    // Create role-specific profile — cleanup user on failure
+    try {
       if (role === "CANDIDAT") {
-        await tx.profileCandidat.create({
-          data: {
-            userId: newUser.id,
-            firstName,
-            lastName,
-            skills: "[]",
-          },
-        });
+        await withRetry(
+          () =>
+            prisma.profileCandidat.create({
+              data: {
+                userId: newUser.id,
+                firstName,
+                lastName,
+                skills: "[]",
+              },
+            }),
+          "createProfileCandidat"
+        );
       } else {
-        await tx.profileRecruteur.create({
-          data: {
-            userId: newUser.id,
-            firstName,
-            lastName,
-            company: company || "",
-          },
-        });
+        await withRetry(
+          () =>
+            prisma.profileRecruteur.create({
+              data: {
+                userId: newUser.id,
+                firstName,
+                lastName,
+                company: company || "",
+              },
+            }),
+          "createProfileRecruteur"
+        );
       }
-
-      return newUser;
-    }), "registerTransaction");
+    } catch (profileErr) {
+      // Rollback: delete the user so the email can be re-used
+      console.error("[AUTH] Profile creation failed, rolling back user:", profileErr);
+      await prisma.user.delete({ where: { id: newUser.id } }).catch(() => {});
+      throw profileErr;
+    }
 
     // Send verification email
     try {
-      await sendVerificationEmail(user.email, verificationToken);
+      await sendVerificationEmail(newUser.email, verificationToken);
     } catch (emailErr) {
       console.error("[AUTH] Failed to send verification email:", emailErr);
     }
@@ -172,7 +186,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       message: "Inscription réussie ! Vérifiez votre email pour activer votre compte.",
     });
   } catch (error) {
-    console.error("[AUTH] Register error:", error);
+    console.error("[AUTH] Register error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -404,44 +418,60 @@ export async function googleLogin(
         );
       }
     } else {
-      // Create new user — Google users are auto-verified
+      // Create new user — sequential ops instead of transaction
       const userRole = role === "RECRUTEUR" ? "RECRUTEUR" : "CANDIDAT";
 
-      user = await withRetry(() => prisma.$transaction(async (tx) => {
-        const newUser = await tx.user.create({
-          data: {
-            email: userEmail,
-            password: "", // No password for Google-only users
-            role: userRole,
-            isVerified: true, // Google users are auto-verified
-            googleId: googleId,
-          },
-        });
+      const newUser = await withRetry(
+        () =>
+          prisma.user.create({
+            data: {
+              email: userEmail,
+              password: "",
+              role: userRole,
+              isVerified: true,
+              googleId: googleId,
+            },
+          }),
+        "createGoogleUser"
+      );
 
-        // Create profile
+      try {
         if (userRole === "CANDIDAT") {
-          await tx.profileCandidat.create({
-            data: {
-              userId: newUser.id,
-              firstName: given_name || "Utilisateur",
-              lastName: family_name || "Google",
-              skills: "[]",
-            },
-          });
+          await withRetry(
+            () =>
+              prisma.profileCandidat.create({
+                data: {
+                  userId: newUser.id,
+                  firstName: given_name || "Utilisateur",
+                  lastName: family_name || "Google",
+                  skills: "[]",
+                },
+              }),
+            "createGoogleProfileCandidat"
+          );
         } else {
-          await tx.profileRecruteur.create({
-            data: {
-              userId: newUser.id,
-              firstName: given_name || "Utilisateur",
-              lastName: family_name || "Google",
-              company: "",
-            },
-          });
+          await withRetry(
+            () =>
+              prisma.profileRecruteur.create({
+                data: {
+                  userId: newUser.id,
+                  firstName: given_name || "Utilisateur",
+                  lastName: family_name || "Google",
+                  company: "",
+                },
+              }),
+            "createGoogleProfileRecruteur"
+          );
         }
+      } catch (profileErr) {
+        console.error("[AUTH] Google profile creation failed, rolling back user:", profileErr);
+        await prisma.user.delete({ where: { id: newUser.id } }).catch(() => {});
+        throw profileErr;
+      }
 
-        return newUser;
-      }), "googleRegisterTransaction");
+      user = newUser;
     }
+
     const token = signToken({
       userId: user.id,
       email: user.email,
@@ -461,7 +491,7 @@ export async function googleLogin(
       },
     });
   } catch (error) {
-    console.error("[AUTH] Google login error:", error);
+    console.error("[AUTH] Google login error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur lors de la connexion Google.",

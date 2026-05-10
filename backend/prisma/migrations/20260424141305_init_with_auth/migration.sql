@@ -1,26 +1,22 @@
--- Fix PostgreSQL Schema: Safe migration that handles existing databases
--- This migration is idempotent and safe to run multiple times
-
--- Step 1: Create users table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "users" (
+-- CreateTable
+CREATE TABLE "users" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "email" TEXT NOT NULL UNIQUE,
+    "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'CANDIDAT',
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "verificationToken" TEXT,
-    "googleId" TEXT UNIQUE,
+    "googleId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL
 );
 
--- Step 2: Create profiles_candidat table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "profiles_candidat" (
+-- CreateTable
+CREATE TABLE "profiles_candidat" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL UNIQUE REFERENCES "users"("id") ON DELETE CASCADE,
+    "userId" TEXT NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
-    "email" TEXT,
     "title" TEXT,
     "bio" TEXT,
     "skills" TEXT NOT NULL DEFAULT '[]',
@@ -32,16 +28,15 @@ CREATE TABLE IF NOT EXISTS "profiles_candidat" (
     "phone" TEXT,
     "linkedIn" TEXT,
     "avatarUrl" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'DRAFT',
-    "draftData" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "profiles_candidat_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 3: Create profiles_recruteur table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "profiles_recruteur" (
+-- CreateTable
+CREATE TABLE "profiles_recruteur" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL UNIQUE REFERENCES "users"("id") ON DELETE CASCADE,
+    "userId" TEXT NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "company" TEXT NOT NULL,
@@ -50,42 +45,14 @@ CREATE TABLE IF NOT EXISTS "profiles_recruteur" (
     "website" TEXT,
     "avatarUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "profiles_recruteur_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 4: Create experiences table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "experiences" (
+-- CreateTable
+CREATE TABLE "job_offers" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "profileId" TEXT NOT NULL REFERENCES "profiles_candidat"("id") ON DELETE CASCADE,
-    "title" TEXT NOT NULL,
-    "company" TEXT NOT NULL,
-    "location" TEXT,
-    "description" TEXT,
-    "startDate" TIMESTAMP(3),
-    "endDate" TIMESTAMP(3),
-    "currentlyWorking" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL
-);
-
--- Step 5: Create educations table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "educations" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "profileId" TEXT NOT NULL REFERENCES "profiles_candidat"("id") ON DELETE CASCADE,
-    "title" TEXT NOT NULL,
-    "school" TEXT NOT NULL,
-    "field" TEXT,
-    "description" TEXT,
-    "startDate" TIMESTAMP(3),
-    "endDate" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL
-);
-
--- Step 6: Create job_offers table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "job_offers" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "recruiterId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "recruiterId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "company" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -99,43 +66,56 @@ CREATE TABLE IF NOT EXISTS "job_offers" (
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "expiresAt" TIMESTAMP(3)
+    "expiresAt" TIMESTAMP(3),
+    CONSTRAINT "job_offers_recruiterId_fkey" FOREIGN KEY ("recruiterId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 7: Create messages table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "messages" (
+-- CreateTable
+CREATE TABLE "messages" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "senderId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-    "receiverId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "senderId" TEXT NOT NULL,
+    "receiverId" TEXT NOT NULL,
     "subject" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "read" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "messages_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "messages_receiverId_fkey" FOREIGN KEY ("receiverId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 8: Create notifications table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "notifications" (
+-- CreateTable
+CREATE TABLE "notifications" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "userId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "message" TEXT NOT NULL,
     "read" BOOLEAN NOT NULL DEFAULT false,
     "metadata" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 9: Create saved_candidates table if it doesn't exist
-CREATE TABLE IF NOT EXISTS "saved_candidates" (
+-- CreateTable
+CREATE TABLE "saved_candidates" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "recruiterId" TEXT NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "recruiterId" TEXT NOT NULL,
     "candidateId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE("recruiterId", "candidateId")
+    CONSTRAINT "saved_candidates_recruiterId_fkey" FOREIGN KEY ("recruiterId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Step 10: Create indexes if they don't exist
-CREATE INDEX IF NOT EXISTS "experiences_profileId_idx" ON "experiences"("profileId");
-CREATE INDEX IF NOT EXISTS "educations_profileId_idx" ON "educations"("profileId");
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "users_googleId_key" ON "users"("googleId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "profiles_candidat_userId_key" ON "profiles_candidat"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "profiles_recruteur_userId_key" ON "profiles_recruteur"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "saved_candidates_recruiterId_candidateId_key" ON "saved_candidates"("recruiterId", "candidateId");

@@ -370,6 +370,23 @@ export default function ProfileBuilder() {
         location: uiSnapshot.location || null,
         linkedIn: uiSnapshot.linkedIn || null,
         portfolioUrl: uiSnapshot.portfolioUrl || null,
+        // Include experiences and educations for database sync
+        experiences: experiences.map((exp) => ({
+          title: exp.title,
+          company: exp.company,
+          location: exp.period || null,
+          description: exp.desc || null,
+          startDate: null,
+          endDate: null,
+        })),
+        educations: educations.map((edu) => ({
+          title: edu.title,
+          school: edu.company,
+          field: null,
+          description: edu.desc || null,
+          startDate: null,
+          endDate: null,
+        })),
       };
 
       console.log("📤 Envoi des données au serveur...", payload);

@@ -529,6 +529,10 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Extract experiences and educations if provided (for bulk publishing)
+    const experiences = Array.isArray(req.body.experiences) ? req.body.experiences : [];
+    const educations = Array.isArray(req.body.educations) ? req.body.educations : [];
+
     const data: Record<string, unknown> = { ...validation.data };
     if (data.skills && Array.isArray(data.skills)) {
       data.skills = JSON.stringify(data.skills);
@@ -537,7 +541,8 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
     // Note: draftData is intentionally preserved so the completion bar
     // remains accurate on the dashboard after publishing.
 
-    const updatedProfile = await withRetry(() => prisma.profileCandidat.upsert({
+    // Get or create profile
+    const profile = await withRetry(() => prisma.profileCandidat.upsert({
       where: { userId },
       update: data as any,
       create: {
@@ -548,13 +553,70 @@ export async function publishProfile(req: Request, res: Response): Promise<void>
       },
     }), "publishProfile");
 
+    // Sync experiences: delete all, then recreate from the batch
+    if (experiences.length > 0) {
+      await withRetry(
+        () => prisma.experience.deleteMany({ where: { profileId: profile.id } }),
+        "deleteExperiencesForSync"
+      );
+
+      for (const exp of experiences) {
+        if (exp.title && exp.company) {
+          await withRetry(
+            () =>
+              prisma.experience.create({
+                data: {
+                  title: exp.title,
+                  company: exp.company,
+                  location: exp.location || null,
+                  description: exp.description || null,
+                  startDate: exp.startDate ? new Date(exp.startDate) : null,
+                  endDate: exp.endDate ? new Date(exp.endDate) : null,
+                  currentlyWorking: exp.currentlyWorking || false,
+                  profileId: profile.id,
+                },
+              }),
+            `createExperienceSync_${exp.title}`
+          );
+        }
+      }
+    }
+
+    // Sync educations: delete all, then recreate from the batch
+    if (educations.length > 0) {
+      await withRetry(
+        () => prisma.education.deleteMany({ where: { profileId: profile.id } }),
+        "deleteEducationsForSync"
+      );
+
+      for (const edu of educations) {
+        if (edu.title && edu.school) {
+          await withRetry(
+            () =>
+              prisma.education.create({
+                data: {
+                  title: edu.title,
+                  school: edu.school,
+                  field: edu.field || null,
+                  description: edu.description || null,
+                  startDate: edu.startDate ? new Date(edu.startDate) : null,
+                  endDate: edu.endDate ? new Date(edu.endDate) : null,
+                  profileId: profile.id,
+                },
+              }),
+            `createEducationSync_${edu.title}`
+          );
+        }
+      }
+    }
+
     res.json({
       success: true,
       message: "Profil publié avec succès.",
-      data: updatedProfile,
+      data: profile,
     });
   } catch (error) {
-    console.error("[PROFILE] PublishProfile error:", error);
+    console.error("[PROFILE] PublishProfile error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -589,10 +651,10 @@ export async function createExperience(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const profile = await prisma.profileCandidat.findUnique({
+    const profile = await withRetry(() => prisma.profileCandidat.findUnique({
       where: { userId },
       select: { id: true },
-    });
+    }), "findProfileForExp");
 
     if (!profile) {
       res.status(404).json({
@@ -602,12 +664,16 @@ export async function createExperience(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const experience = await prisma.experience.create({
-      data: {
-        ...validation.data,
-        profileId: profile.id,
-      },
-    });
+    const experience = await withRetry(
+      () =>
+        prisma.experience.create({
+          data: {
+            ...validation.data,
+            profileId: profile.id,
+          },
+        }),
+      "createExperience"
+    );
 
     res.json({
       success: true,
@@ -615,7 +681,7 @@ export async function createExperience(req: Request, res: Response): Promise<voi
       data: experience,
     });
   } catch (error) {
-    console.error("[PROFILE] CreateExperience error:", error);
+    console.error("[PROFILE] CreateExperience error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -637,10 +703,14 @@ export async function updateExperience(req: Request, res: Response): Promise<voi
       return;
     }
 
-    const experience = await prisma.experience.update({
-      where: { id: expId },
-      data: validation.data,
-    });
+    const experience = await withRetry(
+      () =>
+        prisma.experience.update({
+          where: { id: expId },
+          data: validation.data,
+        }),
+      "updateExperience"
+    );
 
     res.json({
       success: true,
@@ -648,7 +718,7 @@ export async function updateExperience(req: Request, res: Response): Promise<voi
       data: experience,
     });
   } catch (error) {
-    console.error("[PROFILE] UpdateExperience error:", error);
+    console.error("[PROFILE] UpdateExperience error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -660,16 +730,20 @@ export async function deleteExperience(req: Request, res: Response): Promise<voi
   try {
     const expId = req.params.id;
 
-    await prisma.experience.delete({
-      where: { id: expId },
-    });
+    await withRetry(
+      () =>
+        prisma.experience.delete({
+          where: { id: expId },
+        }),
+      "deleteExperience"
+    );
 
     res.json({
       success: true,
       message: "Expérience supprimée.",
     });
   } catch (error) {
-    console.error("[PROFILE] DeleteExperience error:", error);
+    console.error("[PROFILE] DeleteExperience error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -702,10 +776,10 @@ export async function createEducation(req: Request, res: Response): Promise<void
       return;
     }
 
-    const profile = await prisma.profileCandidat.findUnique({
+    const profile = await withRetry(() => prisma.profileCandidat.findUnique({
       where: { userId },
       select: { id: true },
-    });
+    }), "findProfileForEdu");
 
     if (!profile) {
       res.status(404).json({
@@ -715,12 +789,16 @@ export async function createEducation(req: Request, res: Response): Promise<void
       return;
     }
 
-    const education = await prisma.education.create({
-      data: {
-        ...validation.data,
-        profileId: profile.id,
-      },
-    });
+    const education = await withRetry(
+      () =>
+        prisma.education.create({
+          data: {
+            ...validation.data,
+            profileId: profile.id,
+          },
+        }),
+      "createEducation"
+    );
 
     res.json({
       success: true,
@@ -728,7 +806,7 @@ export async function createEducation(req: Request, res: Response): Promise<void
       data: education,
     });
   } catch (error) {
-    console.error("[PROFILE] CreateEducation error:", error);
+    console.error("[PROFILE] CreateEducation error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -750,10 +828,14 @@ export async function updateEducation(req: Request, res: Response): Promise<void
       return;
     }
 
-    const education = await prisma.education.update({
-      where: { id: eduId },
-      data: validation.data,
-    });
+    const education = await withRetry(
+      () =>
+        prisma.education.update({
+          where: { id: eduId },
+          data: validation.data,
+        }),
+      "updateEducation"
+    );
 
     res.json({
       success: true,
@@ -761,7 +843,7 @@ export async function updateEducation(req: Request, res: Response): Promise<void
       data: education,
     });
   } catch (error) {
-    console.error("[PROFILE] UpdateEducation error:", error);
+    console.error("[PROFILE] UpdateEducation error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",
@@ -773,16 +855,20 @@ export async function deleteEducation(req: Request, res: Response): Promise<void
   try {
     const eduId = req.params.id;
 
-    await prisma.education.delete({
-      where: { id: eduId },
-    });
+    await withRetry(
+      () =>
+        prisma.education.delete({
+          where: { id: eduId },
+        }),
+      "deleteEducation"
+    );
 
     res.json({
       success: true,
       message: "Formation supprimée.",
     });
   } catch (error) {
-    console.error("[PROFILE] DeleteEducation error:", error);
+    console.error("[PROFILE] DeleteEducation error:", error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: "Erreur interne du serveur.",

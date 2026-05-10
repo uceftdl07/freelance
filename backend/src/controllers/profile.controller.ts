@@ -691,7 +691,7 @@ export async function createExperience(req: Request, res: Response): Promise<voi
 
 export async function updateExperience(req: Request, res: Response): Promise<void> {
   try {
-    const expId = req.params.id;
+    const expId = req.params.id as string;
 
     const validation = experienceSchema.partial().safeParse(req.body);
     if (!validation.success) {
@@ -728,7 +728,7 @@ export async function updateExperience(req: Request, res: Response): Promise<voi
 
 export async function deleteExperience(req: Request, res: Response): Promise<void> {
   try {
-    const expId = req.params.id;
+    const expId = req.params.id as string;
 
     await withRetry(
       () =>
@@ -816,7 +816,7 @@ export async function createEducation(req: Request, res: Response): Promise<void
 
 export async function updateEducation(req: Request, res: Response): Promise<void> {
   try {
-    const eduId = req.params.id;
+    const eduId = req.params.id as string;
 
     const validation = educationSchema.partial().safeParse(req.body);
     if (!validation.success) {
@@ -853,7 +853,7 @@ export async function updateEducation(req: Request, res: Response): Promise<void
 
 export async function deleteEducation(req: Request, res: Response): Promise<void> {
   try {
-    const eduId = req.params.id;
+    const eduId = req.params.id as string;
 
     await withRetry(
       () =>

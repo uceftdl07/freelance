@@ -218,20 +218,24 @@ export default function CandidateProfilePage() {
       {/* Body */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 space-y-6">
-          {candidate.bio && (
-            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
-                <HiOutlineCheckBadge className="w-5 h-5 text-[#00b8d9]" /> À propos
-              </h2>
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <HiOutlineCheckBadge className="w-5 h-5 text-[#00b8d9]" /> À propos
+            </h2>
+            {candidate.bio ? (
               <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{candidate.bio}</p>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-gray-400 italic">Aucune description renseignée.</p>
+            )}
+          </div>
 
-          {candidate.experiences.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-6">
-                <HiOutlineBriefcase className="w-5 h-5 text-[#00b8d9]" /> Expériences
-              </h2>
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-6">
+              <HiOutlineBriefcase className="w-5 h-5 text-[#00b8d9]" /> Expériences
+            </h2>
+            {candidate.experiences.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Aucune expérience renseignée.</p>
+            ) : (
               <div className="space-y-6">
                 {candidate.experiences.map((exp) => (
                   <div key={exp.id} className="border-l-2 border-[#00b8d9]/30 pl-4">
@@ -253,14 +257,16 @@ export default function CandidateProfilePage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {candidate.educations.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-5">
-                <HiOutlineAcademicCap className="w-5 h-5 text-[#00b8d9]" /> Formations
-              </h2>
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-5">
+              <HiOutlineAcademicCap className="w-5 h-5 text-[#00b8d9]" /> Formations
+            </h2>
+            {candidate.educations.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Aucune formation renseignée.</p>
+            ) : (
               <div className="space-y-4">
                 {candidate.educations.map((ed) => (
                   <div key={ed.id} className="flex items-start gap-4">
@@ -276,16 +282,18 @@ export default function CandidateProfilePage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          {candidate.skills.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
-                <HiOutlineComputerDesktop className="w-4 h-4 text-[#00b8d9]" /> Compétences
-              </h2>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <HiOutlineComputerDesktop className="w-4 h-4 text-[#00b8d9]" /> Compétences
+            </h2>
+            {candidate.skills.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Aucune compétence renseignée.</p>
+            ) : (
               <div className="flex flex-wrap gap-2">
                 {candidate.skills.map((s) => (
                   <span key={s} className="px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-semibold">
@@ -293,8 +301,8 @@ export default function CandidateProfilePage() {
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {(candidate.linkedIn || candidate.portfolioUrl || candidate.phone) && (
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">

@@ -209,6 +209,20 @@ export async function sendMessageToUser(req: Request, res: Response): Promise<vo
       return;
     }
 
+    // Verify receiver exists + has compatible role
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId },
+      select: { id: true, role: true },
+    });
+    if (!receiver) {
+      res.status(404).json({ success: false, message: "Destinataire introuvable." });
+      return;
+    }
+    if (receiver.role === userRole) {
+      res.status(400).json({ success: false, message: "Conversation impossible entre deux utilisateurs du même rôle." });
+      return;
+    }
+
     const recruiterId = userRole === "RECRUTEUR" ? userId : receiverId;
     const candidateId = userRole === "CANDIDAT" ? userId : receiverId;
 
@@ -249,7 +263,10 @@ export async function sendMessageToUser(req: Request, res: Response): Promise<vo
     res.status(201).json({ success: true, data: { conversationId: conversation.id, message } });
   } catch (error) {
     console.error("[MSG] sendMessageToUser error:", error);
-    res.status(500).json({ success: false, message: "Erreur serveur." });
+    const msg = process.env.NODE_ENV === "production"
+      ? "Erreur serveur."
+      : `Erreur serveur: ${error instanceof Error ? error.message : String(error)}`;
+    res.status(500).json({ success: false, message: msg });
   }
 }
 

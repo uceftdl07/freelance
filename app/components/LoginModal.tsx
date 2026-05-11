@@ -15,6 +15,8 @@ interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToRegister: () => void;
+  // Compatibility prop for pages/build caches that may pass register modal switch prop.
+  onSwitchToLogin?: () => void;
 }
 
 // Google icon SVG component

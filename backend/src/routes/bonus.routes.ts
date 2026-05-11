@@ -2,7 +2,6 @@ import { Router } from "express";
 import { authMiddleware, requireRole } from "../middleware/auth";
 import { matchCandidatesForJob, quickMatch } from "../controllers/matching.controller";
 import {
-  sendMessage, getMyMessages,
   saveCandidate, removeSavedCandidate, getSavedCandidates,
   getNotifications, markNotificationsRead,
 } from "../controllers/messaging.controller";
@@ -17,13 +16,7 @@ router.get("/match/job/:jobId", authMiddleware, requireRole("RECRUTEUR"), matchC
 /** Quick match by skills array */
 router.post("/match/quick", authMiddleware, requireRole("RECRUTEUR"), quickMatch);
 
-// ─── Messaging ────────────────────────────────
-
-/** Send a message */
-router.post("/messages", authMiddleware, sendMessage);
-
-/** Get my received messages */
-router.get("/messages", authMiddleware, getMyMessages);
+// Messaging has been moved to messaging.routes.ts
 
 // ─── Save Candidate ──────────────────────────
 

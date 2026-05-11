@@ -30,8 +30,9 @@ model User {
   profileCandidat  ProfileCandidat?
   profileRecruteur ProfileRecruteur?
   jobOffers        JobOffer[]
-  sentMessages     Message[]        @relation("SentMessages")
-  receivedMessages Message[]        @relation("ReceivedMessages")
+  sentMessages          Message[]        @relation("SentMessages")
+  recruiterConversations Conversation[] @relation("RecruiterConversations")
+  candidateConversations Conversation[] @relation("CandidateConversations")
   notifications    Notification[]
   savedCandidates  SavedCandidate[]
   applications     Application[]    @relation("CandidateApplications")
@@ -176,19 +177,34 @@ model Application {
   @@map("applications")
 }
 
-// ─── Message ──────────────────────────────────
+// ─── Messaging ────────────────────────────────
+
+model Conversation {
+  id            String   @id @default(cuid())
+  recruiterId   String
+  candidateId   String
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  recruiter User      @relation("RecruiterConversations", fields: [recruiterId], references: [id], onDelete: Cascade)
+  candidate User      @relation("CandidateConversations", fields: [candidateId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@unique([recruiterId, candidateId])
+  @@map("conversations")
+}
 
 model Message {
-  id         String   @id @default(cuid())
-  senderId   String
-  receiverId String
-  subject    String
-  content    String
-  read       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
-  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@map("messages")
 }

@@ -5,9 +5,12 @@ import { z } from "zod";
 const prisma = new PrismaClient();
 
 const sendMessageSchema = z.object({
+  content: z.string().min(1, "Message requis.").max(5000, "Message trop long."),
+});
+
+const sendFirstMessageSchema = z.object({
   receiverId: z.string().min(1, "Destinataire requis."),
-  subject: z.string().min(2, "Sujet trop court.").max(200),
-  content: z.string().min(5, "Message trop court.").max(5000),
+  content: z.string().min(1, "Message requis.").max(5000, "Message trop long."),
 });
 
 const saveCandidateSchema = z.object({
@@ -15,16 +18,136 @@ const saveCandidateSchema = z.object({
   candidateType: z.enum(["USER", "PROFILE"]).optional(),
 });
 
-const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
+// Helpers
+const userProfileSelect = {
+  id: true,
+  role: true,
+  profileCandidat: {
+    select: { firstName: true, lastName: true, avatarUrl: true, title: true }
+  },
+  profileRecruteur: {
+    select: { firstName: true, lastName: true, avatarUrl: true, company: true }
+  }
+};
 
-// ─── Send Message ─────────────────────────────
+function getDisplayName(user: any) {
+  if (user.role === "CANDIDAT" && user.profileCandidat) {
+    return {
+      name: `${user.profileCandidat.firstName} ${user.profileCandidat.lastName}`,
+      avatar: user.profileCandidat.avatarUrl,
+      subtitle: user.profileCandidat.title
+    };
+  } else if (user.role === "RECRUTEUR" && user.profileRecruteur) {
+    return {
+      name: `${user.profileRecruteur.firstName} ${user.profileRecruteur.lastName}`,
+      avatar: user.profileRecruteur.avatarUrl,
+      subtitle: user.profileRecruteur.company
+    };
+  }
+  return { name: "Utilisateur inconnu", avatar: null, subtitle: null };
+}
 
-export async function sendMessage(req: Request, res: Response): Promise<void> {
+// ─── Conversations & Messages ──────────────────────────
+
+export async function getConversations(req: Request, res: Response): Promise<void> {
   try {
-    const senderId = req.user!.userId;
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+
+    const conversations = await prisma.conversation.findMany({
+      where: userRole === "RECRUTEUR" ? { recruiterId: userId } : { candidateId: userId },
+      orderBy: { lastMessageAt: "desc" },
+      include: {
+        recruiter: { select: userProfileSelect },
+        candidate: { select: userProfileSelect },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        _count: {
+          select: {
+            messages: {
+              where: {
+                senderId: { not: userId },
+                read: false,
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const formatted = conversations.map(conv => {
+      const partner = userRole === "RECRUTEUR" ? conv.candidate : conv.recruiter;
+      const partnerProfile = getDisplayName(partner);
+      
+      return {
+        id: conv.id,
+        partnerId: partner.id,
+        partnerName: partnerProfile.name,
+        partnerAvatar: partnerProfile.avatar,
+        partnerSubtitle: partnerProfile.subtitle,
+        lastMessage: conv.messages[0]?.content || null,
+        lastMessageAt: conv.lastMessageAt,
+        unreadCount: conv._count.messages,
+      };
+    });
+
+    res.json({ success: true, data: formatted });
+  } catch (error) {
+    console.error("[MSG] getConversations error:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur." });
+  }
+}
+
+export async function getMessages(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const conversationId = req.params.id;
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId }
+    });
+
+    if (!conversation || (conversation.recruiterId !== userId && conversation.candidateId !== userId)) {
+      res.status(403).json({ success: false, message: "Accès refusé." });
+      return;
+    }
+
+    // Mark messages as read
+    await prisma.message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        read: false
+      },
+      data: { read: true }
+    });
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "asc" }
+    });
+
+    const formatted = messages.map(m => ({
+      id: m.id,
+      content: m.content,
+      createdAt: m.createdAt,
+      read: m.read,
+      isFromMe: m.senderId === userId
+    }));
+
+    res.json({ success: true, data: formatted });
+  } catch (error) {
+    console.error("[MSG] getMessages error:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur." });
+  }
+}
+
+export async function sendMessageToConversation(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const conversationId = req.params.id;
     const validation = sendMessageSchema.safeParse(req.body);
 
     if (!validation.success) {
@@ -32,101 +155,125 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const { receiverId, subject, content } = validation.data;
+    const { content } = validation.data;
 
-    if (receiverId === senderId) {
-      res.status(400).json({ success: false, message: "Vous ne pouvez pas vous envoyer un message à vous-même." });
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId }
+    });
+
+    if (!conversation || (conversation.recruiterId !== userId && conversation.candidateId !== userId)) {
+      res.status(403).json({ success: false, message: "Accès refusé." });
       return;
     }
 
-    // Verify receiver exists
-    const receiver = await prisma.user.findUnique({ where: { id: receiverId } });
-    if (!receiver) {
-      res.status(404).json({ success: false, message: "Destinataire non trouvé." });
-      return;
-    }
+    const receiverId = conversation.recruiterId === userId ? conversation.candidateId : conversation.recruiterId;
 
-    // Create message
     const message = await prisma.message.create({
-      data: { senderId, receiverId, subject: subject.trim(), content: content.trim() },
-    });
-
-    // Create notification for receiver
-    const senderProfile = await prisma.user.findUnique({
-      where: { id: senderId },
-      include: { profileRecruteur: true, profileCandidat: true },
-    });
-    const senderName = senderProfile?.profileRecruteur
-      ? `${senderProfile.profileRecruteur.firstName} ${senderProfile.profileRecruteur.lastName}`
-      : senderProfile?.profileCandidat
-        ? `${senderProfile.profileCandidat.firstName} ${senderProfile.profileCandidat.lastName}`
-        : "Un utilisateur";
-
-    await prisma.notification.create({
       data: {
-        userId: receiverId,
-        type: "MESSAGE_RECEIVED",
-        title: "Nouveau message",
-        message: `${senderName} vous a envoyé un message : "${subject}"`,
-        metadata: JSON.stringify({ senderId, messageId: message.id }),
-      },
+        conversationId,
+        senderId: userId,
+        content: content.trim()
+      }
     });
 
-    res.status(201).json({ success: true, message: "Message envoyé.", data: { id: message.id } });
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() }
+    });
+
+    // Fire and forget notification
+    createMessageNotification(userId, receiverId, content).catch(console.error);
+
+    res.status(201).json({ success: true, data: message });
   } catch (error) {
-    console.error("[MSG] SendMessage error:", error);
-    res.status(500).json({ success: false, message: "Erreur lors de l'envoi." });
+    console.error("[MSG] sendMessageToConversation error:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 }
 
-// ─── Get My Messages ──────────────────────────
-
-export async function getMyMessages(req: Request, res: Response): Promise<void> {
+export async function sendMessageToUser(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const queryValidation = paginationSchema.safeParse(req.query);
-    if (!queryValidation.success) {
-      res.status(400).json({ success: false, message: "Paramètres de pagination invalides." });
+    const userRole = req.user!.role;
+    const validation = sendFirstMessageSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      res.status(400).json({ success: false, message: "Données invalides.", errors: validation.error.flatten().fieldErrors });
       return;
     }
 
-    const { page, limit } = queryValidation.data;
-    const skip = (page - 1) * limit;
+    const { receiverId, content } = validation.data;
 
-    const [messages, total] = await Promise.all([
-      prisma.message.findMany({
-        where: { receiverId: userId },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: {
-          sender: {
-            select: { id: true, email: true, role: true, profileRecruteur: { select: { firstName: true, lastName: true, company: true } }, profileCandidat: { select: { firstName: true, lastName: true } } },
-          },
-        },
-      }),
-      prisma.message.count({ where: { receiverId: userId } }),
-    ]);
+    if (userId === receiverId) {
+      res.status(400).json({ success: false, message: "Vous ne pouvez pas vous envoyer un message." });
+      return;
+    }
 
-    res.json({
-      success: true,
-      data: {
-        messages,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-        },
-      },
+    const recruiterId = userRole === "RECRUTEUR" ? userId : receiverId;
+    const candidateId = userRole === "CANDIDAT" ? userId : receiverId;
+
+    let conversation = await prisma.conversation.findUnique({
+      where: {
+        recruiterId_candidateId: {
+          recruiterId,
+          candidateId
+        }
+      }
     });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          recruiterId,
+          candidateId,
+          lastMessageAt: new Date()
+        }
+      });
+    } else {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() }
+      });
+    }
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId: userId,
+        content: content.trim()
+      }
+    });
+
+    createMessageNotification(userId, receiverId, content).catch(console.error);
+
+    res.status(201).json({ success: true, data: { conversationId: conversation.id, message } });
   } catch (error) {
-    console.error("[MSG] GetMyMessages error:", error);
-    res.status(500).json({ success: false, message: "Erreur." });
+    console.error("[MSG] sendMessageToUser error:", error);
+    res.status(500).json({ success: false, message: "Erreur serveur." });
   }
 }
 
-// ─── Save Candidate ───────────────────────────
+async function createMessageNotification(senderId: string, receiverId: string, content: string) {
+  const sender = await prisma.user.findUnique({
+    where: { id: senderId },
+    select: userProfileSelect
+  });
+  
+  const senderInfo = getDisplayName(sender);
+  const snippet = content.length > 50 ? content.substring(0, 47) + "..." : content;
+
+  await prisma.notification.create({
+    data: {
+      userId: receiverId,
+      type: "MESSAGE_RECEIVED",
+      title: "Nouveau message",
+      message: `${senderInfo.name} vous a envoyé : "${snippet}"`,
+      metadata: JSON.stringify({ senderId }),
+    },
+  });
+}
+
+// ─── Bonus & Notifications (Existing logic adapted) ──
 
 export async function saveCandidate(req: Request, res: Response): Promise<void> {
   try {
@@ -139,25 +286,17 @@ export async function saveCandidate(req: Request, res: Response): Promise<void> 
     }
 
     const { candidateId, candidateType } = validation.data;
-
-    // Accept either userId or profileId to tolerate frontend payloads.
     let candidateUserId: string | null = null;
-    let candidateProfile: { userId: string } | null = null;
 
     if (candidateType === "PROFILE") {
-      candidateProfile = await prisma.profileCandidat.findUnique({ where: { id: candidateId }, select: { userId: true } });
+      const candidateProfile = await prisma.profileCandidat.findUnique({ where: { id: candidateId }, select: { userId: true } });
       candidateUserId = candidateProfile?.userId ?? null;
-    } else if (candidateType === "USER") {
-      const candidateUser = await prisma.user.findUnique({ where: { id: candidateId }, select: { id: true, role: true } });
-      if (candidateUser?.role === "CANDIDAT") {
-        candidateUserId = candidateUser.id;
-      }
     } else {
       const candidateUser = await prisma.user.findUnique({ where: { id: candidateId }, select: { id: true, role: true } });
       if (candidateUser?.role === "CANDIDAT") {
         candidateUserId = candidateUser.id;
       } else {
-        candidateProfile = await prisma.profileCandidat.findUnique({ where: { id: candidateId }, select: { userId: true } });
+        const candidateProfile = await prisma.profileCandidat.findUnique({ where: { id: candidateId }, select: { userId: true } });
         candidateUserId = candidateProfile?.userId ?? null;
       }
     }
@@ -172,36 +311,11 @@ export async function saveCandidate(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Upsert to avoid duplicate errors
     await prisma.savedCandidate.upsert({
       where: { recruiterId_candidateId: { recruiterId, candidateId: candidateUserId } },
       update: {},
       create: { recruiterId, candidateId: candidateUserId },
     });
-
-    // Find candidate name for notification
-    const candidate = await prisma.profileCandidat.findFirst({ where: { userId: candidateUserId } });
-
-    // Notify the candidate
-    const recruiter = await prisma.user.findUnique({
-      where: { id: recruiterId },
-      include: { profileRecruteur: true },
-    });
-    const recruiterName = recruiter?.profileRecruteur
-      ? `${recruiter.profileRecruteur.firstName} ${recruiter.profileRecruteur.lastName} (${recruiter.profileRecruteur.company})`
-      : "Un recruteur";
-
-    if (candidate) {
-      await prisma.notification.create({
-        data: {
-          userId: candidateUserId,
-          type: "PROFILE_SAVED",
-          title: "Profil sauvegardé",
-          message: `${recruiterName} a sauvegardé votre profil.`,
-          metadata: JSON.stringify({ recruiterId }),
-        },
-      });
-    }
 
     res.json({ success: true, message: "Candidat sauvegardé." });
   } catch (error) {
@@ -209,85 +323,6 @@ export async function saveCandidate(req: Request, res: Response): Promise<void> 
     res.status(500).json({ success: false, message: "Erreur." });
   }
 }
-
-// ─── Remove Saved Candidate ───────────────────
-
-export async function removeSavedCandidate(req: Request, res: Response): Promise<void> {
-  try {
-    const recruiterId = req.user!.userId;
-    const candidateId = req.params.candidateId as string;
-
-    if (!candidateId) {
-      res.status(400).json({ success: false, message: "ID candidat requis." });
-      return;
-    }
-
-    await prisma.savedCandidate.deleteMany({
-      where: { recruiterId, candidateId },
-    });
-
-    res.json({ success: true, message: "Candidat retire des sauvegardes." });
-  } catch (error) {
-    console.error("[MSG] RemoveSavedCandidate error:", error);
-    res.status(500).json({ success: false, message: "Erreur." });
-  }
-}
-
-// ─── Get Saved Candidates ─────────────────────
-
-export async function getSavedCandidates(req: Request, res: Response): Promise<void> {
-  try {
-    const recruiterId = req.user!.userId;
-
-    const saved = await prisma.savedCandidate.findMany({
-      where: { recruiterId },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const candidateIds = saved.map((entry) => entry.candidateId);
-    const profiles = candidateIds.length
-      ? await prisma.profileCandidat.findMany({
-          where: { userId: { in: candidateIds } },
-          select: {
-            id: true,
-            userId: true,
-            firstName: true,
-            lastName: true,
-            title: true,
-            location: true,
-            tjm: true,
-          },
-        })
-      : [];
-
-    const profilesByUserId = new Map(profiles.map((p) => [p.userId, p]));
-
-    const candidates = saved.map((entry) => {
-      const profile = profilesByUserId.get(entry.candidateId);
-      return {
-        candidateId: entry.candidateId,
-        savedAt: entry.createdAt,
-        profile: profile
-          ? {
-              id: profile.id,
-              userId: profile.userId,
-              name: `${profile.firstName} ${profile.lastName}`.trim(),
-              title: profile.title,
-              location: profile.location,
-              tjm: profile.tjm,
-            }
-          : null,
-      };
-    });
-
-    res.json({ success: true, data: { candidates, total: candidates.length } });
-  } catch (error) {
-    console.error("[MSG] GetSavedCandidates error:", error);
-    res.status(500).json({ success: false, message: "Erreur." });
-  }
-}
-
-// ─── Get Notifications ────────────────────────
 
 export async function getNotifications(req: Request, res: Response): Promise<void> {
   try {
@@ -305,8 +340,6 @@ export async function getNotifications(req: Request, res: Response): Promise<voi
     res.status(500).json({ success: false, message: "Erreur." });
   }
 }
-
-// ─── Mark Notifications Read ──────────────────
 
 export async function markNotificationsRead(req: Request, res: Response): Promise<void> {
   try {

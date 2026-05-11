@@ -11,7 +11,7 @@ import bonusRoutes from "./routes/bonus.routes";
 import profilesRoutes from "./routes/profiles.routes";
 import jobsRoutes from "./routes/jobs.routes";
 import applicationsRoutes from "./routes/applications.routes";
-
+import messagingRoutes from "./routes/messaging.routes";
 // ─── Create Express App ───────────────────────
 
 const app = express();
@@ -123,6 +123,9 @@ app.use("/api/jobs", jobsRoutes);
 
 // Applications routes (candidate apply / recruiter manage)
 app.use("/api/applications", applicationsRoutes);
+
+// Messaging routes
+app.use("/api/messaging", messagingRoutes);
 
 // ─── 404 Handler ──────────────────────────────
 

@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import {
@@ -61,11 +62,19 @@ function formatDate(dateStr: string) {
 }
 
 function OffresContent() {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<JobOffer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [contractType, setContractType] = useState("");
-  const [locationFilter, setLocationFilter] = useState("");
+  const [search, setSearch] = useState(searchParams?.get("search") || "");
+  const [contractType, setContractType] = useState(searchParams?.get("contractType") || "");
+  const [locationFilter, setLocationFilter] = useState(searchParams?.get("location") || "");
+
+  // Re-sync state when URL params change (e.g. navbar submits new search)
+  useEffect(() => {
+    setSearch(searchParams?.get("search") || "");
+    setLocationFilter(searchParams?.get("location") || "");
+    setContractType(searchParams?.get("contractType") || "");
+  }, [searchParams]);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -119,7 +128,7 @@ function OffresContent() {
                 type="text"
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                placeholder="Ville, région..."
+                placeholder="Ville (Casablanca, Rabat...)"
                 className="bg-transparent w-full text-sm text-gray-700 outline-none"
               />
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { HiMenu, HiX } from "react-icons/hi";
 import { HiMagnifyingGlass, HiMapPin } from "react-icons/hi2";
 import Link from "next/link";
@@ -27,7 +27,18 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [navSearch, setNavSearch] = useState("");
+  const [navLocation, setNavLocation] = useState("");
   const pathname = usePathname();
+  const router = useRouter();
+
+  const submitNavSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (navSearch.trim()) params.set("search", navSearch.trim());
+    if (navLocation.trim()) params.set("location", navLocation.trim());
+    router.push(`/offres${params.toString() ? `?${params}` : ""}`);
+  };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -87,13 +98,29 @@ export default function Navbar() {
               })}
             </div>
 
-            {/* Small Header Search (Optional as per prompt) */}
-            <div className="hidden xl:flex items-center mx-6 flex-1 max-w-md bg-gray-50 rounded-full px-4 py-2 border border-gray-200 focus-within:border-[#00b8d9] transition-colors">
-               <HiMagnifyingGlass className="w-4 h-4 text-gray-400 mr-2" />
-               <input type="text" placeholder="Métier, mot-clé" className="bg-transparent text-xs text-gray-700 outline-none w-1/2 border-r border-gray-200 mr-2 pr-2" />
-               <HiMapPin className="w-4 h-4 text-gray-400 mr-2" />
-               <input type="text" placeholder="Toute la France" className="bg-transparent text-xs text-gray-700 outline-none w-1/2" />
-            </div>
+            {/* Small Header Search */}
+            <form
+              onSubmit={submitNavSearch}
+              className="hidden xl:flex items-center mx-6 flex-1 max-w-md bg-gray-50 rounded-full px-4 py-2 border border-gray-200 focus-within:border-[#00b8d9] transition-colors"
+            >
+              <HiMagnifyingGlass className="w-4 h-4 text-gray-400 mr-2" />
+              <input
+                type="text"
+                value={navSearch}
+                onChange={(e) => setNavSearch(e.target.value)}
+                placeholder="Métier, mot-clé"
+                className="bg-transparent text-xs text-gray-700 outline-none w-1/2 border-r border-gray-200 mr-2 pr-2"
+              />
+              <HiMapPin className="w-4 h-4 text-gray-400 mr-2" />
+              <input
+                type="text"
+                value={navLocation}
+                onChange={(e) => setNavLocation(e.target.value)}
+                placeholder="Tout le Maroc"
+                className="bg-transparent text-xs text-gray-700 outline-none w-1/2"
+              />
+              <button type="submit" className="sr-only">Rechercher</button>
+            </form>
 
             {/* Desktop Right Buttons */}
             <div className="hidden lg:flex items-center gap-4">

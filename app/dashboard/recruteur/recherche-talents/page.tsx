@@ -11,6 +11,18 @@ import {
   HiMapPin
 } from "react-icons/hi2";
 
+type Talent = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  availability: string;
+  color: string;
+  title: string;
+  location: string;
+  tags: string[];
+  tjm: number;
+};
+
 export default function CVthequePage() {
   const PAGE_SIZE = 8;
   const [query, setQuery] = useState("");
@@ -24,7 +36,7 @@ export default function CVthequePage() {
   const [sortBy, setSortBy] = useState<"PERTINENCE" | "TJM_ASC" | "TJM_DESC">("PERTINENCE");
 
   // Ajout pour charger les vrais profils
-  const [talents, setTalents] = useState<any[]>([]);
+  const [talents, setTalents] = useState<Talent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

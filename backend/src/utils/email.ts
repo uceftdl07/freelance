@@ -5,7 +5,32 @@ let transporter: nodemailer.Transporter | null = null;
 
 function isEmailConfigured(): boolean {
   if (env.isDev) return true;
-  return env.isSmtpConfigured;
+  return env.isResendConfigured || env.isSmtpConfigured;
+}
+
+async function sendViaResendApi(to: string, subject: string, html: string): Promise<void> {
+  if (!env.isResendConfigured) {
+    throw new Error("RESEND_NOT_CONFIGURED");
+  }
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.SMTP_FROM,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const payload = await res.text();
+    throw new Error(`RESEND_API_ERROR: ${res.status} ${payload}`);
+  }
 }
 
 /**
@@ -65,7 +90,7 @@ export async function sendVerificationEmail(
   }
 
   const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${token}`;
-  const transport = await getTransporter();
+  const subject = "Vérifiez votre email — FreelanceIT";
 
   const html = `
     <!DOCTYPE html>
@@ -130,10 +155,26 @@ export async function sendVerificationEmail(
     </html>
   `;
 
+  if (env.isResendConfigured) {
+    try {
+      await sendViaResendApi(to, subject, html);
+      console.log(`[EMAIL] Verification email sent via Resend API to ${to}`);
+      return;
+    } catch (resendErr) {
+      console.error("[EMAIL] Resend API failed, falling back to SMTP:", resendErr);
+    }
+  }
+
+  if (!env.isSmtpConfigured && !env.isDev) {
+    console.warn("[EMAIL] No SMTP fallback configured; verification email skipped.");
+    return;
+  }
+
+  const transport = await getTransporter();
   const info = await transport.sendMail({
     from: env.SMTP_FROM,
     to,
-    subject: "Vérifiez votre email — FreelanceIT",
+    subject,
     html,
   });
 

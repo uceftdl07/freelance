@@ -53,11 +53,12 @@ export const env = {
   LINKEDIN_REDIRECT_URI: process.env.LINKEDIN_REDIRECT_URI || "",
 
   // Email / SMTP
+  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
   SMTP_HOST: process.env.SMTP_HOST || "",
   SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
   SMTP_USER: process.env.SMTP_USER || "",
   SMTP_PASS: process.env.SMTP_PASS || "",
-  SMTP_FROM: process.env.SMTP_FROM || '"FreelanceIT" <noreply@freelanceit.ma',
+  SMTP_FROM: process.env.SMTP_FROM || '"FreelanceIT" <noreply@freelanceit.fr>',
 
   // Helpers
   get isDev() {
@@ -68,6 +69,9 @@ export const env = {
   },
   get isSmtpConfigured() {
     return Boolean(this.SMTP_HOST && this.SMTP_USER && this.SMTP_PASS);
+  },
+  get isResendConfigured() {
+    return Boolean(this.RESEND_API_KEY);
   },
 } as const;
 

@@ -84,8 +84,16 @@ export default function CandidateProfilePage() {
       setLoading(true);
       setError(null);
       const res = await apiRequest<CandidateProfile>(`/search/candidates/${candidateId}`);
-      if (res.success && res.data) setCandidate(res.data);
-      else setError(res.message || "Erreur lors du chargement du profil");
+      if (res.success && res.data) {
+        // Defensive defaults (older backend may not return these arrays)
+        const data = {
+          ...res.data,
+          skills: Array.isArray(res.data.skills) ? res.data.skills : [],
+          experiences: Array.isArray(res.data.experiences) ? res.data.experiences : [],
+          educations: Array.isArray(res.data.educations) ? res.data.educations : [],
+        };
+        setCandidate(data);
+      } else setError(res.message || "Erreur lors du chargement du profil");
       setLoading(false);
     })();
   }, [candidateId]);

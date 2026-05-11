@@ -51,6 +51,58 @@ function calculateMatchScore(
   return Math.round(skillScore * 0.7 + expScore * 0.15 + availScore * 0.15);
 }
 
+// ─── Match Jobs for the connected Candidate ───
+
+export async function matchJobsForCandidate(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const profile = await prisma.profileCandidat.findUnique({
+      where: { userId },
+      select: { skills: true, location: true },
+    });
+    if (!profile) {
+      res.json({ success: true, data: { jobs: [], total: 0 } });
+      return;
+    }
+    const candidateSkills = parseJsonArray(profile.skills).map((s) => s.toLowerCase());
+
+    const jobs = await prisma.jobOffer.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const scored = jobs
+      .map((j) => {
+        const tags = parseJsonArray(j.tags).map((t) => t.toLowerCase());
+        if (tags.length === 0) return { job: j, score: 0, matched: 0 };
+        const matched = tags.filter((t) => candidateSkills.includes(t)).length;
+        const score = Math.round((matched / tags.length) * 100);
+        return { job: j, score, matched };
+      })
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    const result = scored.slice(0, 10).map(({ job, score }) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      remote: job.remote,
+      contractType: job.contractType,
+      tjm: job.tjm,
+      tags: parseJsonArray(job.tags),
+      score,
+      createdAt: job.createdAt,
+    }));
+
+    res.json({ success: true, data: { jobs: result, total: scored.length } });
+  } catch (error) {
+    console.error("[MATCH] CandidateMatch error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors du matching." });
+  }
+}
+
 // ─── Match Candidates for a Job Offer ─────────
 
 export async function matchCandidatesForJob(req: Request, res: Response): Promise<void> {

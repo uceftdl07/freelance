@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware, requireRole } from "../middleware/auth";
-import { matchCandidatesForJob, quickMatch } from "../controllers/matching.controller";
+import { matchCandidatesForJob, quickMatch, matchJobsForCandidate } from "../controllers/matching.controller";
 import {
   saveCandidate, removeSavedCandidate, getSavedCandidates,
   getNotifications, markNotificationsRead,
@@ -15,6 +15,9 @@ router.get("/match/job/:jobId", authMiddleware, requireRole("RECRUTEUR"), matchC
 
 /** Quick match by skills array */
 router.post("/match/quick", authMiddleware, requireRole("RECRUTEUR"), quickMatch);
+
+/** Match jobs for the connected candidate (skill overlap) */
+router.get("/match/candidate", authMiddleware, requireRole("CANDIDAT"), matchJobsForCandidate);
 
 // Messaging has been moved to messaging.routes.ts
 

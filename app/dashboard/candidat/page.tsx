@@ -9,6 +9,7 @@ import {
 } from "react-icons/hi2";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/AuthContext";
+import { apiRequest } from "../../lib/api";
 
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const API_BASE = RAW_API_URL.endsWith("/api")
@@ -80,10 +81,48 @@ function analyzeProfileCompletion(source: CompletionSource): CompletionResult {
   };
 }
 
+type MatchJob = {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  remote: boolean;
+  contractType: string;
+  tjm: number | null;
+  tags: string[];
+  score: number;
+};
+
 export default function CandidatDashboard() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [missingFields, setMissingFields] = useState<Array<{ label: string; step: number }>>([]);
+  const [matches, setMatches] = useState<MatchJob[]>([]);
+  const [matchTotal, setMatchTotal] = useState(0);
+  const [appsCount, setAppsCount] = useState(0);
+  const [profileViews, setProfileViews] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      const [m, a, n] = await Promise.all([
+        apiRequest<{ jobs: MatchJob[]; total: number }>("/match/candidate"),
+        apiRequest<{ applications: Array<{ status: string }>; total: number }>("/applications/mine"),
+        apiRequest<{ notifications: Array<{ type: string }>; unreadCount: number }>("/notifications"),
+      ]);
+      if (m.success && m.data) {
+        setMatches(m.data.jobs);
+        setMatchTotal(m.data.total);
+      }
+      if (a.success && a.data) {
+        const active = a.data.applications.filter((x) => !["REJECTED", "WITHDRAWN"].includes(x.status));
+        setAppsCount(active.length);
+      }
+      if (n.success && n.data) {
+        setProfileViews(n.data.notifications.filter((x) => x.type === "PROFILE_SAVED" || x.type === "MESSAGE_RECEIVED").length);
+      }
+    })();
+  }, [token]);
 
   useEffect(() => {
     const loadCompletion = async () => {
@@ -188,7 +227,7 @@ export default function CandidatDashboard() {
         
         <div className="relative z-10">
           <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">
-            Bonjour Youssef 👋
+            Bonjour{user?.email ? ` ${user.email.split("@")[0]}` : ""} 👋
           </h1>
           <p className="text-indigo-100 text-sm max-w-xl leading-relaxed">
             Bienvenue sur votre espace candidat. C'est ici que vous gérez vos informations, vos candidatures et que vous découvrez les missions qui matchent avec votre profil.
@@ -257,15 +296,15 @@ export default function CandidatDashboard() {
               <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <HiOutlineEye className="w-6 h-6" />
               </div>
-              <p className="text-3xl font-black text-[#0a1628] mb-1">24</p>
-              <p className="text-sm font-medium text-gray-500">Vues du profil (30j)</p>
+              <p className="text-3xl font-black text-[#0a1628] mb-1">{profileViews}</p>
+              <p className="text-sm font-medium text-gray-500">Vues / interactions</p>
             </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
               <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <HiOutlineBriefcase className="w-6 h-6" />
               </div>
-              <p className="text-3xl font-black text-[#0a1628] mb-1">3</p>
+              <p className="text-3xl font-black text-[#0a1628] mb-1">{appsCount}</p>
               <p className="text-sm font-medium text-gray-500">Candidatures en cours</p>
             </div>
 
@@ -273,8 +312,8 @@ export default function CandidatDashboard() {
               <div className="w-12 h-12 rounded-xl bg-[#00b8d9]/10 text-[#00b8d9] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <HiOutlineSparkles className="w-6 h-6" />
               </div>
-              <p className="text-3xl font-black text-[#0a1628] mb-1">12</p>
-              <p className="text-sm font-medium text-gray-500">Nouvelles offres matchées</p>
+              <p className="text-3xl font-black text-[#0a1628] mb-1">{matchTotal}</p>
+              <p className="text-sm font-medium text-gray-500">Offres matchées</p>
             </div>
 
           </div>
@@ -288,15 +327,27 @@ export default function CandidatDashboard() {
             <h3 className="font-bold text-gray-800 text-lg mb-4">Derniers matchs</h3>
             
             <div className="space-y-4">
-              {[
-                { title: "Lead Dev React", company: "TechCorp", location: "Remote" },
-                { title: "Ingénieur Cloud Azure", company: "ConsultIT", location: "Paris" }
-              ].map((job, i) => (
-                <div key={i} className="group cursor-pointer border border-gray-50 bg-gray-50 rounded-xl p-4 hover:border-[#00b8d9]/30 transition-colors">
-                  <h4 className="font-bold text-[#0a1628] text-sm group-hover:text-[#00b8d9] transition-colors">{job.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1">{job.company} • {job.location}</p>
-                </div>
-              ))}
+              {matches.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Aucun match pour le moment. Ajoutez des compétences à votre profil.</p>
+              ) : (
+                matches.slice(0, 3).map((job) => (
+                  <Link
+                    key={job.id}
+                    href={`/offres/${job.id}`}
+                    className="block group border border-gray-50 bg-gray-50 rounded-xl p-4 hover:border-[#00b8d9]/30 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-[#0a1628] text-sm group-hover:text-[#00b8d9] transition-colors line-clamp-1">{job.title}</h4>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00b8d9]/10 text-[#00b8d9] flex-shrink-0">
+                        {job.score}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {job.company} • {job.remote ? "Remote" : job.location}
+                    </p>
+                  </Link>
+                ))
+              )}
             </div>
 
             <Link href="/dashboard/candidat/offres" className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[#00b8d9] hover:text-[#0092ad] transition-colors w-full py-2 bg-[#00b8d9]/5 rounded-xl">

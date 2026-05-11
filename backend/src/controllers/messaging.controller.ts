@@ -351,3 +351,51 @@ export async function markNotificationsRead(req: Request, res: Response): Promis
     res.status(500).json({ success: false, message: "Erreur." });
   }
 }
+
+export async function removeSavedCandidate(req: Request, res: Response): Promise<void> {
+  try {
+    const recruiterId = req.user!.userId;
+    const { candidateId } = req.params;
+
+    await prisma.savedCandidate.deleteMany({
+      where: { recruiterId, candidateId },
+    });
+
+    res.json({ success: true, message: "Candidat retiré des sauvegardes." });
+  } catch (error) {
+    console.error("[MSG] RemoveSavedCandidate error:", error);
+    res.status(500).json({ success: false, message: "Erreur." });
+  }
+}
+
+export async function getSavedCandidates(req: Request, res: Response): Promise<void> {
+  try {
+    const recruiterId = req.user!.userId;
+
+    const saved = await prisma.savedCandidate.findMany({
+      where: { recruiterId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        recruiter: {
+          select: {
+            id: true,
+            profileCandidat: {
+              select: { firstName: true, lastName: true, avatarUrl: true, title: true, skills: true, tjm: true, availability: true, location: true }
+            }
+          }
+        }
+      }
+    });
+
+    const data = saved.map(s => ({
+      savedId: s.id,
+      candidateId: s.candidateId,
+      savedAt: s.createdAt,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error("[MSG] GetSavedCandidates error:", error);
+    res.status(500).json({ success: false, message: "Erreur." });
+  }
+}

@@ -228,7 +228,7 @@ export default function RecruteurOffresPage() {
       location: formLocation,
       tjm: formTjm ? parseInt(formTjm.replace(/\D/g, ""), 10) || null : null,
       tags: formSkills.split(",").map((s) => s.trim()).filter(Boolean),
-      status: editingOffer ? editingOffer.apiStatus : "DRAFT",
+      status: editingOffer ? editingOffer.apiStatus : "ACTIVE",
     };
 
     if (editingOffer) {

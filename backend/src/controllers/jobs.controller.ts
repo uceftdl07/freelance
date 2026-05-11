@@ -8,9 +8,9 @@ const contractTypes = ["FREELANCE", "CDI", "CDD", "STAGE"] as const;
 const statuses = ["ACTIVE", "CLOSED", "DRAFT"] as const;
 
 const createJobOfferSchema = z.object({
-  title: z.string().trim().min(2),
-  description: z.string().trim().min(10),
-  location: z.string().trim().min(2),
+  title: z.string().trim().min(2, "Le titre doit contenir au moins 2 caractères."),
+  description: z.string().trim().min(10, "La description doit contenir au moins 10 caractères."),
+  location: z.string().trim().optional().nullable(),
   company: z.string().trim().optional(),
   remote: z.boolean().optional(),
   contractType: z.enum(contractTypes).optional(),
@@ -76,10 +76,14 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
 
     const validation = createJobOfferSchema.safeParse(req.body);
     if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors;
+      const firstError =
+        Object.values(fieldErrors).flat().find((m) => typeof m === "string") ||
+        "Données invalides.";
       res.status(400).json({
         success: false,
-        message: "Données invalides.",
-        errors: validation.error.flatten().fieldErrors,
+        message: firstError as string,
+        errors: fieldErrors,
       });
       return;
     }
@@ -106,7 +110,7 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
         title,
         company,
         description,
-        location,
+        location: (location && location.trim()) || "Non précisé",
         remote: Boolean(remote),
         contractType,
         tjm: parseOptionalInt(tjm),
@@ -132,9 +136,11 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     console.error("[Jobs] Create error:", error);
+    const message =
+      error instanceof Error ? error.message : "Erreur lors de la création de l'offre.";
     res.status(500).json({
       success: false,
-      message: "Erreur lors de la création de l'offre.",
+      message: `Erreur serveur: ${message}`,
     });
   }
 }

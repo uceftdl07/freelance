@@ -85,15 +85,24 @@ export default function CreateOfferModal({
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok || !json.success) {
+        console.error("[CreateOffer] backend error", res.status, json);
         if (res.status === 401) {
           setError("Session expirée. Veuillez vous reconnecter.");
         } else if (res.status === 403) {
           setError("Seuls les recruteurs peuvent publier des offres.");
         } else {
-          setError(json.message || "Erreur lors de la publication.");
+          // Try to surface zod field errors for clarity
+          const fieldErrors = json?.errors as Record<string, string[]> | undefined;
+          const firstFieldError =
+            fieldErrors && Object.values(fieldErrors).flat().find((m) => typeof m === "string");
+          setError(
+            (firstFieldError as string | undefined) ||
+              json.message ||
+              `Erreur lors de la publication (HTTP ${res.status}).`
+          );
         }
         setLoading(false);
         return;
@@ -106,8 +115,8 @@ export default function CreateOfferModal({
         handleClose();
         onSuccess?.();
       }, 2000);
-    } catch {
-      setError("Impossible de contacter le serveur.");
+      } catch {
+      setError("Impossible de contacter le serveur. Vérifiez que le backend est démarré.");
       setLoading(false);
     }
   };

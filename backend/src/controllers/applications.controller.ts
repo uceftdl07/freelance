@@ -194,6 +194,7 @@ export async function getApplicationsForJob(req: Request, res: Response): Promis
             email: true,
             profileCandidat: {
               select: {
+                id: true,
                 firstName: true,
                 lastName: true,
                 title: true,
@@ -201,6 +202,7 @@ export async function getApplicationsForJob(req: Request, res: Response): Promis
                 skills: true,
                 tjm: true,
                 location: true,
+                yearsOfExperience: true,
               },
             },
           },

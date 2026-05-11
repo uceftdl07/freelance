@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
 
-export default function LinkedInCallbackPage() {
+function LinkedInCallbackContent() {
   const searchParams = useSearchParams();
   const { linkedinLogin } = useAuth();
   const [status, setStatus] = useState("Connexion LinkedIn en cours...");
@@ -61,6 +61,22 @@ export default function LinkedInCallbackPage() {
         <p className="text-sm text-gray-700">{status}</p>
       </div>
     </main>
+  );
+}
+
+export default function LinkedInCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-md w-full rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+            <p className="text-sm text-gray-700">Connexion LinkedIn en cours...</p>
+          </div>
+        </main>
+      }
+    >
+      <LinkedInCallbackContent />
+    </Suspense>
   );
 }
 

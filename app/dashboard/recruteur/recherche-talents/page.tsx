@@ -73,6 +73,15 @@ export default function CVthequePage() {
     setVisibleCount(PAGE_SIZE);
   };
 
+  const cycleSort = () => {
+    setSortBy((current) => {
+      if (current === "PERTINENCE") return "TJM_ASC";
+      if (current === "TJM_ASC") return "TJM_DESC";
+      return "PERTINENCE";
+    });
+    setVisibleCount(PAGE_SIZE);
+  };
+
   // Tri et filtrage côté client si besoin
   const filteredTalents = useMemo(() => {
     let base = talents;

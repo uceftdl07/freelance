@@ -176,6 +176,20 @@ export async function getCandidateDetail(req: Request, res: Response): Promise<v
         linkedIn: true,
         avatarUrl: true,
         createdAt: true,
+        experiences: {
+          select: {
+            id: true, title: true, company: true, location: true,
+            description: true, startDate: true, endDate: true, currentlyWorking: true,
+          },
+          orderBy: { startDate: "desc" },
+        },
+        educations: {
+          select: {
+            id: true, title: true, school: true, field: true,
+            description: true, startDate: true, endDate: true,
+          },
+          orderBy: { startDate: "desc" },
+        },
       },
     });
 

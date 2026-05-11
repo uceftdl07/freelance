@@ -3,6 +3,7 @@ import { authMiddleware, requireRole } from "../middleware/auth";
 import {
   createJobOffer,
   getJobOffers,
+  getJobOfferById,
   getMyJobOffers,
   updateJobOffer,
   deleteJobOffer,
@@ -24,6 +25,13 @@ router.get("/", getJobOffers);
  * @access  Private (JWT + RECRUTEUR)
  */
 router.get("/mine", authMiddleware, requireRole("RECRUTEUR"), getMyJobOffers);
+
+/**
+ * @route   GET /api/jobs/:id
+ * @desc    Get a single job offer by id
+ * @access  Public
+ */
+router.get("/:id", getJobOfferById);
 
 /**
  * @route   POST /api/jobs

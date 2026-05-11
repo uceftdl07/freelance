@@ -265,6 +265,37 @@ export async function getMyJobOffers(req: Request, res: Response): Promise<void>
 }
 
 /**
+ * GET /api/jobs/:id
+ * Get a single active job offer (public).
+ */
+export async function getJobOfferById(req: Request, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const job = await prisma.jobOffer.findUnique({
+      where: { id },
+      include: {
+        recruiter: {
+          select: {
+            email: true,
+            profileRecruteur: {
+              select: { company: true, firstName: true, lastName: true, website: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+    });
+    if (!job) {
+      res.status(404).json({ success: false, message: "Offre non trouvée." });
+      return;
+    }
+    res.json({ success: true, data: { ...job, tags: parseStoredTags(job.tags) } });
+  } catch (error) {
+    console.error("[Jobs] GetById error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors de la récupération de l'offre." });
+  }
+}
+
+/**
  * PUT /api/jobs/:id
  * Update a job offer (owner only).
  */

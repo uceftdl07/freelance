@@ -233,7 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("freelanceit_onboarded");
   }, []);
 
   return (

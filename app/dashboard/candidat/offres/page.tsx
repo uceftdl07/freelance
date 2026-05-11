@@ -32,8 +32,9 @@ interface JobOffer {
 }
 
 const CITIES = [
-  "Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux",
-  "Lille", "Nantes", "Strasbourg", "Rennes", "Nice",
+  "Casablanca", "Rabat", "Marrakech", "Fès", "Tanger",
+  "Agadir", "Meknès", "Oujda", "Kenitra", "Tétouan",
+  "Salé", "Mohammedia", "El Jadida", "Béni Mellal", "Nador",
 ];
 
 const CONTRACT_LABELS: Record<string, string> = {

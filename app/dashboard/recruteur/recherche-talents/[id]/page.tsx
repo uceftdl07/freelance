@@ -113,7 +113,7 @@ export default function CandidateProfilePage() {
   };
 
   const toggleSave = async () => {
-    if (saving) return;
+    if (saving || !candidate) return;
 
     setSaving(true);
     const nextSaved = !saved;

@@ -21,6 +21,48 @@ import {
   HiHeart,
 } from "react-icons/hi2";
 
+type CandidateExperience = {
+  id: string;
+  companyColor: string;
+  companyLogo: string;
+  role: string;
+  company: string;
+  type: string;
+  dates: string;
+  duration: string;
+  description: string[];
+};
+
+type CandidateFormation = {
+  diploma: string;
+  school: string;
+  year: string;
+};
+
+type CandidateLanguage = {
+  name: string;
+  level: string;
+};
+
+type CandidateProfile = {
+  name: string;
+  title: string;
+  avatar: string;
+  avatarColor: string;
+  location: string;
+  experience: string;
+  tjm: number;
+  availability: string;
+  about: string;
+  experiences: CandidateExperience[];
+  formations: CandidateFormation[];
+  certifications: string[];
+  skills: string[];
+  languages: CandidateLanguage[];
+  remote: string;
+  zone: string;
+};
+
 /* ───── Component ───── */
 
 export default function CandidateProfilePage() {
@@ -30,7 +72,7 @@ export default function CandidateProfilePage() {
   const [saving, setSaving] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [candidate, setCandidate] = useState<any | null>(null);
+  const [candidate, setCandidate] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +84,7 @@ export default function CandidateProfilePage() {
         const res = await fetch(`/api/search/candidates/${candidateId}`);
         const data = await res.json();
         if (data.success) {
-          setCandidate(data.data);
+          setCandidate(data.data as CandidateProfile);
         } else {
           setError("Profil non trouvé");
         }

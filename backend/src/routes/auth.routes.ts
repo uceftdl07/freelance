@@ -4,6 +4,7 @@ import {
   login,
   verifyEmail,
   googleLogin,
+  linkedInLogin,
   resendVerification,
   changePassword,
 } from "../controllers/auth.controller";
@@ -42,6 +43,14 @@ router.get("/verify-email", verifyEmail);
  * @body    { code, role? }
  */
 router.post("/google", googleLogin);
+
+/**
+ * @route   POST /api/auth/linkedin
+ * @desc    Login/Register with LinkedIn OAuth (authorization code exchange)
+ * @access  Public
+ * @body    { code, role? }
+ */
+router.post("/linkedin", linkedInLogin);
 
 /**
  * @route   POST /api/auth/resend-verification

@@ -34,7 +34,7 @@ export default function LoginModal({
   onClose,
   onSwitchToRegister,
 }: LoginModalProps) {
-  const { login, googleLogin, resendVerification } = useAuth();
+  const { login, googleLogin, linkedinLogin, resendVerification } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,6 +139,36 @@ export default function LoginModal({
       client.requestCode();
     } catch {
       setError("Erreur lors de l'initialisation de Google OAuth.");
+    }
+  };
+
+  const handleLinkedInClick = () => {
+    try {
+      const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID;
+      const redirectUri =
+        process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI ||
+        `${window.location.origin}/linkedin/callback`;
+
+      if (!clientId) {
+        setError("LinkedIn OAuth n'est pas configure.");
+        return;
+      }
+
+      const state = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem("linkedin_oauth_state", state);
+      sessionStorage.setItem("linkedin_oauth_role", "");
+
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        state,
+        scope: "openid profile email",
+      });
+
+      window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+    } catch {
+      setError("Erreur lors de l'initialisation de LinkedIn OAuth.");
     }
   };
 
@@ -305,6 +335,16 @@ export default function LoginModal({
           >
             <GoogleIcon />
             Continuer avec Google
+          </button>
+
+          <button
+            onClick={handleLinkedInClick}
+            disabled={loading}
+            className="w-full mt-3 py-3 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all cursor-pointer flex items-center justify-center gap-3 disabled:opacity-60"
+            style={{ color: "#374151" }}
+          >
+            <span className="font-bold text-[#0A66C2]">in</span>
+            Continuer avec LinkedIn
           </button>
 
           {/* Switch to register */}

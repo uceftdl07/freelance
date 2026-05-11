@@ -24,6 +24,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (data: RegisterData) => Promise<AuthResult>;
   googleLogin: (credential: string, role?: string) => Promise<AuthResult>;
+  linkedinLogin: (code: string, role?: string) => Promise<AuthResult>;
   logout: () => void;
   resendVerification: (email: string) => Promise<AuthResult>;
 }
@@ -170,6 +171,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [saveAuth]
   );
 
+  const linkedinLogin = useCallback(
+    async (code: string, role?: string): Promise<AuthResult> => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/linkedin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, role }),
+        });
+        const json = await res.json();
+
+        if (json.success && json.data?.token) {
+          saveAuth(json.data.token, json.data.user);
+          return { success: true, message: json.message };
+        }
+
+        return {
+          success: false,
+          message: json.message || "Erreur de connexion LinkedIn.",
+        };
+      } catch {
+        return {
+          success: false,
+          message: "Impossible de contacter le serveur.",
+        };
+      }
+    },
+    [saveAuth]
+  );
+
   // ─── Resend Verification ──────────────────────
 
   const resendVerification = useCallback(
@@ -215,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         googleLogin,
+        linkedinLogin,
         logout,
         resendVerification,
       }}

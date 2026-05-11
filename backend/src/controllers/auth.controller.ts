@@ -50,6 +50,55 @@ const googleClient = new OAuth2Client(
   "postmessage" // redirect_uri for popup-based auth code flow
 );
 
+type LinkedInUserInfo = {
+  sub?: string;
+  email?: string;
+  given_name?: string;
+  family_name?: string;
+  name?: string;
+};
+
+async function fetchLinkedInUserInfo(code: string): Promise<LinkedInUserInfo> {
+  if (!env.LINKEDIN_CLIENT_ID || !env.LINKEDIN_CLIENT_SECRET || !env.LINKEDIN_REDIRECT_URI) {
+    throw new Error("LinkedIn OAuth is not configured");
+  }
+
+  const tokenBody = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    client_id: env.LINKEDIN_CLIENT_ID,
+    client_secret: env.LINKEDIN_CLIENT_SECRET,
+    redirect_uri: env.LINKEDIN_REDIRECT_URI,
+  });
+
+  const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: tokenBody.toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text();
+    throw new Error(`LinkedIn token exchange failed: ${tokenRes.status} ${text}`);
+  }
+
+  const tokenJson = (await tokenRes.json()) as { access_token?: string };
+  if (!tokenJson.access_token) {
+    throw new Error("LinkedIn did not return an access token");
+  }
+
+  const userInfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+    headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+  });
+
+  if (!userInfoRes.ok) {
+    const text = await userInfoRes.text();
+    throw new Error(`LinkedIn user info request failed: ${userInfoRes.status} ${text}`);
+  }
+
+  return (await userInfoRes.json()) as LinkedInUserInfo;
+}
+
 // ─── Validation Schemas ───────────────────────
 
 const registerSchema = z.object({
@@ -507,6 +556,122 @@ export async function googleLogin(
     res.status(500).json({
       success: false,
       message: "Erreur lors de la connexion Google.",
+    });
+  }
+}
+
+// ─── LinkedIn Login ───────────────────────────
+
+export async function linkedInLogin(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { code, role } = req.body as { code?: string; role?: string };
+
+    if (!code) {
+      res.status(400).json({
+        success: false,
+        message: "Code LinkedIn manquant.",
+      });
+      return;
+    }
+
+    const userInfo = await fetchLinkedInUserInfo(code);
+    const email = userInfo.email?.toLowerCase().trim();
+
+    if (!email) {
+      res.status(401).json({
+        success: false,
+        message: "Impossible de recuperer l'email LinkedIn.",
+      });
+      return;
+    }
+
+    const firstName = userInfo.given_name || userInfo.name || "Utilisateur";
+    const lastName = userInfo.family_name || "LinkedIn";
+
+    let user = await withRetry(
+      () => prisma.user.findUnique({ where: { email } }),
+      "findLinkedInUserByEmail"
+    );
+
+    if (!user) {
+      const userRole = role === "RECRUTEUR" ? "RECRUTEUR" : "CANDIDAT";
+
+      const newUser = await withRetry(
+        () =>
+          prisma.user.create({
+            data: {
+              email,
+              password: "",
+              role: userRole,
+              isVerified: true,
+            },
+          }),
+        "createLinkedInUser"
+      );
+
+      try {
+        if (userRole === "CANDIDAT") {
+          await withRetry(
+            () =>
+              prisma.profileCandidat.create({
+                data: {
+                  userId: newUser.id,
+                  firstName,
+                  lastName,
+                  skills: "[]",
+                },
+              }),
+            "createLinkedInProfileCandidat"
+          );
+        } else {
+          await withRetry(
+            () =>
+              prisma.profileRecruteur.create({
+                data: {
+                  userId: newUser.id,
+                  firstName,
+                  lastName,
+                  company: "",
+                },
+              }),
+            "createLinkedInProfileRecruteur"
+          );
+        }
+      } catch (profileErr) {
+        console.error("[AUTH] LinkedIn profile creation failed, rolling back user:", profileErr);
+        await prisma.user.delete({ where: { id: newUser.id } }).catch(() => {});
+        throw profileErr;
+      }
+
+      user = newUser;
+    }
+
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    res.json({
+      success: true,
+      message: "Connexion LinkedIn reussie.",
+      data: {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("[AUTH] LinkedIn login error:", error instanceof Error ? error.message : error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la connexion LinkedIn.",
     });
   }
 }

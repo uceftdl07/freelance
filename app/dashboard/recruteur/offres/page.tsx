@@ -180,10 +180,20 @@ export default function RecruteurOffresPage() {
 
   const fetchMyOffers = useCallback(async () => {
     setLoading(true);
-    const res = await apiRequest<{ jobs: ApiJobOffer[] }>("/jobs/mine");
+    const [res, appsRes] = await Promise.all([
+      apiRequest<{ jobs: ApiJobOffer[] }>("/jobs/mine"),
+      apiRequest<{ applications: Array<{ job: { id: string } }> }>("/applications/received"),
+    ]);
+
+    const counts: Record<string, number> = {};
+    if (appsRes.success && appsRes.data?.applications) {
+      for (const a of appsRes.data.applications) {
+        counts[a.job.id] = (counts[a.job.id] || 0) + 1;
+      }
+    }
 
     if (res.success && res.data?.jobs) {
-      setOffers(res.data.jobs.map(mapApiToOffer));
+      setOffers(res.data.jobs.map((j) => ({ ...mapApiToOffer(j), candidates: counts[j.id] || 0 })));
     } else {
       setOffers(INITIAL_OFFERS);
     }

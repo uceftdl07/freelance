@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   HiMagnifyingGlass,
   HiPaperAirplane,
@@ -188,20 +189,75 @@ function buildMockData(role: "candidat" | "recruteur"): Conversation[] {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 export default function MessagerieView({ role }: { role: "candidat" | "recruteur" }) {
-  const conversations = buildMockData(role);
-  const [activeId, setActiveId] = useState(conversations[0].id);
+  const searchParams = useSearchParams();
+  const initialConversationId = searchParams?.get("conversationId");
+  
+  const [conversations, setConversations] = useState<Conversation[]>(buildMockData(role));
+  const [activeId, setActiveId] = useState(initialConversationId || conversations[0].id);
   const [search, setSearch] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [localMessages, setLocalMessages] = useState<Record<string, Message[]>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const active = conversations.find((c) => c.id === activeId)!;
-  const allMessages = [...active.messages, ...(localMessages[activeId] || [])];
+  const active = conversations.find((c) => c.id === activeId) || conversations[0];
+  
+  // Si la conversation est "réelle" (UUID), on utilise uniquement les messages fetchés
+  const isRealConversation = activeId.length > 10;
+  const fetchedMessages = localMessages[activeId] || [];
+  const allMessages = isRealConversation ? fetchedMessages : [...active.messages, ...fetchedMessages];
 
   const filtered = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  // 1. Load User
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) setCurrentUser(JSON.parse(stored));
+  }, []);
+
+  // 2. Fetch & Poll Conversations
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchConvs = async () => {
+      try {
+        const res = await fetch(`/api/conversations?userId=${currentUser.id}&role=${currentUser.role}`);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          setConversations(data.data);
+          if (!activeId || !data.data.find((c: any) => c.id === activeId)) {
+            setActiveId(initialConversationId || data.data[0].id);
+          }
+        }
+      } catch (e) {
+        // Silently fallback to mock data
+      }
+    };
+    fetchConvs();
+    const interval = setInterval(fetchConvs, 5000);
+    return () => clearInterval(interval);
+  }, [currentUser, activeId, initialConversationId]);
+
+  // 3. Fetch & Poll Messages for active chat
+  useEffect(() => {
+    if (!isRealConversation || !currentUser) return;
+    
+    const fetchMsgs = async () => {
+      try {
+        const res = await fetch(`/api/messages?conversationId=${activeId}`);
+        const data = await res.json();
+        if (data.success) {
+          const formatted = data.data.map((m: any) => ({ ...m, fromMe: m.senderId === currentUser.id }));
+          setLocalMessages((prev) => ({ ...prev, [activeId]: formatted }));
+        }
+      } catch (e) {}
+    };
+    fetchMsgs();
+    const interval = setInterval(fetchMsgs, 2000); // Polling rapide
+    return () => clearInterval(interval);
+  }, [activeId, isRealConversation, currentUser]);
 
   // Auto-scroll to bottom when conversation changes or new message
   useEffect(() => {
@@ -217,7 +273,7 @@ export default function MessagerieView({ role }: { role: "candidat" | "recruteur
     }
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!newMessage.trim()) return;
     const msg: Message = {
       id: Date.now().toString(),
@@ -230,6 +286,20 @@ export default function MessagerieView({ role }: { role: "candidat" | "recruteur
       [activeId]: [...(prev[activeId] || []), msg],
     }));
     setNewMessage("");
+    
+    // Si c'est une vraie conversation, on l'envoie en BDD
+    if (isRealConversation && currentUser) {
+      try {
+        await fetch("/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversationId: activeId, senderId: currentUser.id, content: msg.text }),
+        });
+      } catch (e) {
+        console.error("Erreur d'envoi", e);
+      }
+    }
+
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { 
@@ -8,6 +9,7 @@ import {
   HiAdjustmentsHorizontal,
   HiOutlineUser,
   HiOutlineCurrencyEuro,
+  HiChatBubbleLeftEllipsis,
   HiMapPin
 } from "react-icons/hi2";
 
@@ -25,6 +27,7 @@ type Talent = {
 
 export default function CVthequePage() {
   const PAGE_SIZE = 8;
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [availability, setAvailability] = useState("");
   const [maxTjm, setMaxTjm] = useState("");
@@ -92,6 +95,32 @@ export default function CVthequePage() {
       return "PERTINENCE";
     });
     setVisibleCount(PAGE_SIZE);
+  };
+
+  const handleContact = async (talentId: string) => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (!storedUser) {
+        alert("Veuillez vous connecter pour contacter ce candidat.");
+        return;
+      }
+      const user = JSON.parse(storedUser);
+
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidatId: talentId, recruteurId: user.id }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        router.push(`/dashboard/recruteur/messagerie?conversationId=${data.data.id}`);
+      } else {
+        alert("Erreur lors de l'initialisation de la conversation.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Tri et filtrage côté client si besoin
@@ -221,9 +250,14 @@ export default function CVthequePage() {
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">TJM</span>
                 <span className="font-black text-gray-900">{talent.tjm}€</span>
               </div>
-              <Link href={`/dashboard/recruteur/recherche-talents/${talent.id}`} className="px-5 py-2 text-xs font-bold text-[#00b8d9] bg-[#00b8d9]/10 hover:bg-[#00b8d9] hover:text-white rounded-xl transition-colors inline-block text-center">
-                Voir le profil
-              </Link>
+              <div className="flex gap-2">
+                <button onClick={() => handleContact(talent.id)} className="p-2 text-[#00b8d9] bg-[#00b8d9]/10 hover:bg-[#00b8d9] hover:text-white rounded-xl transition-colors" title="Contacter">
+                  <HiChatBubbleLeftEllipsis className="w-5 h-5" />
+                </button>
+                <Link href={`/dashboard/recruteur/recherche-talents/${talent.id}`} className="px-5 py-2 text-xs font-bold text-[#00b8d9] bg-[#00b8d9]/10 hover:bg-[#00b8d9] hover:text-white rounded-xl transition-colors inline-block text-center">
+                  Voir le profil
+                </Link>
+              </div>
             </div>
             
           </div>

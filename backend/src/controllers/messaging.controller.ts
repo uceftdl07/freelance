@@ -103,7 +103,7 @@ export async function getConversations(req: Request, res: Response): Promise<voi
 export async function getMessages(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const conversationId = req.params.id;
+    const conversationId = String(req.params.id);
 
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId }
@@ -147,7 +147,7 @@ export async function getMessages(req: Request, res: Response): Promise<void> {
 export async function sendMessageToConversation(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const conversationId = req.params.id;
+    const conversationId = String(req.params.id);
     const validation = sendMessageSchema.safeParse(req.body);
 
     if (!validation.success) {
@@ -355,7 +355,7 @@ export async function markNotificationsRead(req: Request, res: Response): Promis
 export async function removeSavedCandidate(req: Request, res: Response): Promise<void> {
   try {
     const recruiterId = req.user!.userId;
-    const { candidateId } = req.params;
+    const candidateId = String(req.params.candidateId);
 
     await prisma.savedCandidate.deleteMany({
       where: { recruiterId, candidateId },

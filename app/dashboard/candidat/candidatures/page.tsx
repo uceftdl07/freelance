@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { apiRequest } from "../../../lib/api";
 import {
   HiBriefcase,
   HiClock,
@@ -21,7 +22,7 @@ import {
 type ApplicationStatus = "pending" | "accepted" | "rejected";
 
 interface Application {
-  id: number;
+  id: string;
   title: string;
   company: string;
   date: string;
@@ -30,49 +31,51 @@ interface Application {
   coverLetter: string;
 }
 
-// ─── Initial Mock Data ──────────────────────────────────────────
-const INITIAL_CANDIDATURES: Application[] = [
-  {
-    id: 1,
-    title: "Développeur React Senior",
-    company: "TechCorp",
-    date: "22 avr. 2026",
-    status: "pending",
-    tags: ["React", "TypeScript"],
-    coverLetter:
-      "Passionné par le développement frontend, je souhaite contribuer à vos projets innovants grâce à mes 6 ans d'expérience en React et TypeScript. Mon parcours chez plusieurs scale-ups m'a permis de développer une expertise solide en architecture composant et performance.",
-  },
-  {
-    id: 2,
-    title: "Full-Stack Node.js",
-    company: "StartupFlow",
-    date: "18 avr. 2026",
-    status: "accepted",
-    tags: ["Node.js", "MongoDB"],
-    coverLetter:
-      "Fort de mon expérience en développement full-stack, je suis enthousiaste à l'idée de rejoindre StartupFlow. Votre approche agile et votre stack technique moderne correspondent parfaitement à mes compétences et à mes aspirations professionnelles.",
-  },
-  {
-    id: 3,
-    title: "Lead Frontend",
-    company: "DataViz Pro",
-    date: "15 avr. 2026",
-    status: "rejected",
-    tags: ["Vue", "D3.js"],
-    coverLetter:
-      "Avec une solide expérience en management technique et en Vue.js, je suis convaincu de pouvoir apporter une valeur ajoutée à votre équipe front-end. Ma passion pour la data-visualization et mon leadership naturel en font un fit idéal pour ce poste.",
-  },
-  {
-    id: 4,
-    title: "Ingénieur DevOps",
-    company: "CloudScale",
-    date: "10 avr. 2026",
-    status: "pending",
-    tags: ["Docker", "AWS"],
-    coverLetter:
-      "Certifié AWS Solutions Architect et passionné par l'automatisation, je souhaite mettre mes compétences en infrastructure as code et CI/CD au service de CloudScale. Mon expérience en environnements haute-disponibilité sera un atout pour vos projets cloud.",
-  },
-];
+// Backend application shape returned by GET /api/applications/mine
+interface ApiApplication {
+  id: string;
+  status: string;
+  coverLetter: string | null;
+  createdAt: string;
+  job: {
+    id: string;
+    title: string;
+    company: string;
+    tags: string[] | string;
+  };
+}
+
+function mapStatus(s: string): ApplicationStatus {
+  const v = (s || "").toUpperCase();
+  if (v === "ACCEPTED") return "accepted";
+  if (v === "REJECTED") return "rejected";
+  return "pending"; // PENDING | REVIEW | WITHDRAWN -> shown as pending bucket
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function normalizeTags(t: string[] | string | undefined): string[] {
+  if (Array.isArray(t)) return t;
+  if (typeof t === "string") {
+    try {
+      const p = JSON.parse(t);
+      return Array.isArray(p) ? p : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 // ─── Status Config ──────────────────────────────────────────────
 const statusMap: Record<
@@ -113,8 +116,8 @@ function DetailModal({
 }: {
   app: Application;
   onClose: () => void;
-  onWithdraw: (id: number) => void;
-  onEdit: (id: number) => void;
+  onWithdraw: (id: string) => void;
+  onEdit: (id: string) => void;
 }) {
   const st = statusMap[app.status];
   const StatusIcon = st.icon;
@@ -323,7 +326,7 @@ function EditModal({
 }: {
   app: Application;
   onClose: () => void;
-  onSave: (id: number, coverLetter: string) => void;
+  onSave: (id: string, coverLetter: string) => void;
 }) {
   const [letter, setLetter] = useState(app.coverLetter);
   const [saving, setSaving] = useState(false);
@@ -331,10 +334,15 @@ function EditModal({
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    onSave(app.id, letter);
+    const result = await apiRequest(`/applications/${app.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ coverLetter: letter }),
+    });
     setSaving(false);
-    setSaved(true);
+    if (result.success) {
+      onSave(app.id, letter);
+      setSaved(true);
+    }
   };
 
   return (
@@ -510,12 +518,37 @@ function Toast({
 
 // ─── Main Page ──────────────────────────────────────────────────
 export default function CandidaturesPage() {
-  const [candidatures, setCandidatures] =
-    useState<Application[]>(INITIAL_CANDIDATURES);
+  const [candidatures, setCandidatures] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [toastMsg, setToastMsg] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
+
+  // ── Load applications from API ──
+  const loadApplications = useCallback(async () => {
+    setLoading(true);
+    const result = await apiRequest<{ applications: ApiApplication[] }>(
+      "/applications/mine"
+    );
+    if (result.success && result.data) {
+      const mapped: Application[] = result.data.applications.map((a) => ({
+        id: a.id,
+        title: a.job?.title || "Offre supprimée",
+        company: a.job?.company || "—",
+        date: formatDate(a.createdAt),
+        status: mapStatus(a.status),
+        tags: normalizeTags(a.job?.tags),
+        coverLetter: a.coverLetter || "",
+      }));
+      setCandidatures(mapped);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
 
   // ── Dynamic counters ──
   const stats = useMemo(
@@ -543,14 +576,19 @@ export default function CandidaturesPage() {
   };
 
   // ── Withdraw handler ──
-  const handleWithdraw = (id: number) => {
+  const handleWithdraw = async (id: string) => {
+    const result = await apiRequest(`/applications/${id}`, { method: "DELETE" });
+    if (!result.success) {
+      showToast(result.message || "Erreur lors du retrait");
+      return;
+    }
     setCandidatures((prev) => prev.filter((c) => c.id !== id));
     setSelectedApp(null);
     showToast("Candidature retirée avec succès");
   };
 
   // ── Edit handler ──
-  const handleEdit = (id: number) => {
+  const handleEdit = (id: string) => {
     const app = candidatures.find((c) => c.id === id);
     if (app) {
       setSelectedApp(null);
@@ -560,7 +598,7 @@ export default function CandidaturesPage() {
   };
 
   // ── Save edit handler ──
-  const handleSaveEdit = (id: number, newCoverLetter: string) => {
+  const handleSaveEdit = (id: string, newCoverLetter: string) => {
     setCandidatures((prev) =>
       prev.map((c) =>
         c.id === id ? { ...c, coverLetter: newCoverLetter } : c
@@ -603,7 +641,11 @@ export default function CandidaturesPage() {
       </div>
 
       {/* ── Applications List ── */}
-      {candidatures.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-16 text-sm text-gray-500">
+          Chargement de vos candidatures…
+        </div>
+      ) : candidatures.length > 0 ? (
         <div className="space-y-3">
           {candidatures.map((app) => {
             const st = statusMap[app.status];

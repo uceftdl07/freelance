@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "../../lib/AuthContext";
+import { apiRequest } from "../../lib/api";
 import LoginModal from "../../components/LoginModal";
 import RegisterModal from "../../components/RegisterModal";
 import Navbar from "../../components/Navbar";
@@ -69,11 +70,13 @@ function ApplyModal({
   isOpen,
   onClose,
   jobTitle,
+  jobId,
   jobRef,
 }: {
   isOpen: boolean;
   onClose: () => void;
   jobTitle: string;
+  jobId: string;
   jobRef: string;
 }) {
   const { token } = useAuth();
@@ -91,31 +94,50 @@ function ApplyModal({
       setError("Vous devez être connecté pour postuler.");
       return;
     }
+    if (!jobId) {
+      setError("Identifiant d'offre manquant.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      if (cvFile) formData.append("cv", cvFile);
-      formData.append("coverLetter", coverLetter);
-      formData.append("jobRef", jobRef);
+      // 1. Optionally upload a new CV first to get a public URL.
+      let cvUrl: string | null = null;
+      if (cvFile) {
+        const formData = new FormData();
+        formData.append("cv", cvFile);
 
-      const res = await fetch(`${API_BASE}/cv/upload`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (res.status === 401) {
-        setError("Session expirée. Veuillez vous reconnecter.");
-        setSubmitting(false);
-        return;
+        const uploadRes = await fetch(`${API_BASE}/cv/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const uploadJson = await uploadRes.json().catch(() => ({}));
+        if (!uploadRes.ok || !uploadJson?.success) {
+          setError(uploadJson?.message || "Échec de l'envoi du CV.");
+          setSubmitting(false);
+          return;
+        }
+        cvUrl =
+          uploadJson?.data?.cvUrl ||
+          uploadJson?.data?.url ||
+          uploadJson?.data?.publicUrl ||
+          null;
       }
 
-      if (res.status === 403) {
-        setError("Seuls les candidats peuvent postuler.");
+      // 2. Create the application.
+      const result = await apiRequest<{ id: string }>("/applications", {
+        method: "POST",
+        body: JSON.stringify({
+          jobId,
+          coverLetter: coverLetter.trim() || null,
+          cvUrl,
+        }),
+      });
+
+      if (!result.success) {
+        setError(result.message || "Erreur lors de l'envoi de la candidature.");
         setSubmitting(false);
         return;
       }
@@ -214,7 +236,8 @@ function ApplyModal({
               {/* CV Upload */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
-                  CV / Curriculum Vitae *
+                  CV / Curriculum Vitae{" "}
+                  <span className="text-gray-400 font-normal">(optionnel)</span>
                 </label>
                 <input
                   ref={cvInputRef}
@@ -286,13 +309,11 @@ function ApplyModal({
               {/* Submit */}
               <button
                 onClick={handleSubmit}
-                disabled={!cvFile || submitting}
+                disabled={submitting}
                 className="w-full py-4 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:-translate-y-0.5 hover:enabled:shadow-xl"
                 style={{
                   backgroundColor: "#00b8d9",
-                  boxShadow: cvFile
-                    ? "0 8px 20px rgba(0,184,217,0.3)"
-                    : "none",
+                  boxShadow: "0 8px 20px rgba(0,184,217,0.3)",
                 }}
               >
                 {submitting ? (
@@ -342,6 +363,8 @@ function ApplyModal({
 // ─── Main Page ───────────────────────────────────────────────────
 export default function OffreDetailsPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const jobId = (params?.id as string) || "";
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -681,6 +704,7 @@ export default function OffreDetailsPage() {
         isOpen={showApplyModal}
         onClose={() => setShowApplyModal(false)}
         jobTitle={JOB_DATA.title}
+        jobId={jobId}
         jobRef={JOB_DATA.id}
       />
 

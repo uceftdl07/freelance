@@ -224,6 +224,37 @@ export async function getApplicationsForJob(req: Request, res: Response): Promis
 }
 
 /**
+ * GET /api/applications/received
+ * Recruiter aggregate: all applications across their own job offers.
+ */
+export async function getReceivedApplications(req: Request, res: Response): Promise<void> {
+  try {
+    const recruiterId = req.user!.userId;
+    const applications = await prisma.application.findMany({
+      where: { job: { recruiterId } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        job: { select: { id: true, title: true, company: true } },
+        candidate: {
+          select: {
+            id: true,
+            email: true,
+            profileCandidat: {
+              select: { id: true, firstName: true, lastName: true, title: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+    });
+    res.json({ success: true, data: { applications, total: applications.length } });
+  } catch (error) {
+    console.error("[Applications] Received error:", error);
+    res.status(500).json({ success: false, message: "Erreur." });
+  }
+}
+
+/**
  * PATCH /api/applications/:id
  * Candidate updates their own pending application (cover letter / CV).
  */

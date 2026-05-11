@@ -4,6 +4,7 @@ import {
   createApplication,
   getMyApplications,
   getApplicationsForJob,
+  getReceivedApplications,
   updateApplication,
   deleteApplication,
   updateApplicationStatus,
@@ -17,6 +18,13 @@ const router = Router();
  * @access  Private (CANDIDAT)
  */
 router.get("/mine", authMiddleware, requireRole("CANDIDAT"), getMyApplications);
+
+/**
+ * @route   GET /api/applications/received
+ * @desc    Recruiter aggregate of applications across owned jobs
+ * @access  Private (RECRUTEUR)
+ */
+router.get("/received", authMiddleware, requireRole("RECRUTEUR"), getReceivedApplications);
 
 /**
  * @route   GET /api/applications/job/:jobId

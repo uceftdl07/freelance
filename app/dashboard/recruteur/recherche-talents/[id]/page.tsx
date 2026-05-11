@@ -257,7 +257,7 @@ export default function CandidateProfilePage() {
                       </div>
                     </div>
                     <ul className="mt-3 space-y-1.5">
-                      {exp.description.map((d, i) => (
+                      {exp.description.map((d: any, i: number) => (
                         <li key={i} className="flex items-start gap-2 text-xs text-gray-600 leading-relaxed">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#00b8d9] mt-1.5 flex-shrink-0"></span>
                           {d}

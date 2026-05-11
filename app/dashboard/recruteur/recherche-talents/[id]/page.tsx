@@ -233,7 +233,7 @@ export default function CandidateProfilePage() {
               {/* Timeline line */}
               <div className="absolute left-[19px] top-2 bottom-2 w-px bg-gray-100"></div>
 
-              {candidate.experiences.map((exp) => (
+              {candidate.experiences.map((exp: any) => (
                 <div key={exp.id} className="relative flex gap-5">
                   {/* Dot + Company logo */}
                   <div className="relative z-10 flex-shrink-0">

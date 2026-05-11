@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "../lib/AuthContext";
 import Link from "next/link";
 import WelcomeModal from "./WelcomeModal";
 import {
@@ -63,6 +64,7 @@ export default function DashboardLayout({
   const [showWelcome, setShowWelcome] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { logout } = useAuth();
 
   // Show welcome modal if user hasn't completed onboarding
   useEffect(() => {
@@ -77,9 +79,8 @@ export default function DashboardLayout({
     setShowWelcome(false);
   };
 
-  const handleWelcomeLogout = () => {
-    localStorage.removeItem("freelanceit_token");
-    localStorage.removeItem("freelanceit_onboarded");
+  const handleLogout = () => {
+    logout();
     router.push("/");
   };
 
@@ -188,13 +189,13 @@ export default function DashboardLayout({
 
         {/* Logout */}
         <div className="px-3 pb-4 border-t border-white/5 pt-3">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/5 transition-all cursor-pointer"
           >
             <HiArrowRightOnRectangle className="w-5 h-5" />
             Déconnexion
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -282,7 +283,7 @@ export default function DashboardLayout({
                       <HiCog6Tooth className="w-4 h-4 text-gray-400" /> Mon compte
                     </Link>
                     <button
-                      onClick={handleWelcomeLogout}
+                      onClick={handleLogout}
                       className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-red-500 transition-colors mt-1 border-t border-gray-100 pt-3"
                     >
                       <HiArrowRightOnRectangle className="w-4 h-4 text-gray-400" /> Se déconnecter
@@ -301,7 +302,7 @@ export default function DashboardLayout({
       <WelcomeModal
         isOpen={showWelcome}
         onSave={handleWelcomeSave}
-        onLogout={handleWelcomeLogout}
+        onLogout={handleLogout}
       />
     </div>
   );

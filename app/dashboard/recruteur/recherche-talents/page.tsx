@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { 
   HiMagnifyingGlass, 
@@ -10,75 +10,6 @@ import {
   HiOutlineCurrencyEuro,
   HiMapPin
 } from "react-icons/hi2";
-
-const MOCK_TALENTS = [
-  {
-    id: 1,
-    firstName: "Thomas",
-    lastName: "D.",
-    title: "Développeur React Senior",
-    availability: "Disponible",
-    color: "bg-emerald-100 text-emerald-700",
-    tags: ["React", "TypeScript", "Node.js"],
-    tjm: "600",
-    location: "Paris (Remote possible)"
-  },
-  {
-    id: 2,
-    firstName: "Sarah",
-    lastName: "C.",
-    title: "Data Scientist / Python",
-    availability: "Dans 2 semaines",
-    color: "bg-amber-100 text-amber-700",
-    tags: ["Python", "TensorFlow", "SQL"],
-    tjm: "750",
-    location: "Lyon"
-  },
-  {
-    id: 3,
-    firstName: "Lucas",
-    lastName: "M.",
-    title: "Ingénieur DevOps Cloud",
-    availability: "Disponible",
-    color: "bg-emerald-100 text-emerald-700",
-    tags: ["AWS", "Kubernetes", "Terraform"],
-    tjm: "800",
-    location: "100% Remote"
-  },
-  {
-    id: 4,
-    firstName: "Marie",
-    lastName: "L.",
-    title: "Product Manager B2B",
-    availability: "À l'écoute",
-    color: "bg-blue-100 text-blue-700",
-    tags: ["Agile", "Scrum", "Jira"],
-    tjm: "550",
-    location: "Nantes"
-  },
-  {
-    id: 5,
-    firstName: "Youssef",
-    lastName: "B.",
-    title: "Développeur Fullstack JS",
-    availability: "Disponible",
-    color: "bg-emerald-100 text-emerald-700",
-    tags: ["Vue.js", "Express", "MongoDB"],
-    tjm: "450",
-    location: "Bordeaux"
-  },
-  {
-    id: 6,
-    firstName: "Emma",
-    lastName: "P.",
-    title: "Architecte Logiciel Java",
-    availability: "Dans 1 mois",
-    color: "bg-purple-100 text-purple-700",
-    tags: ["Java 17", "Spring Boot", "Kafka"],
-    tjm: "900",
-    location: "Paris"
-  }
-];
 
 export default function CVthequePage() {
   const PAGE_SIZE = 8;
@@ -91,6 +22,39 @@ export default function CVthequePage() {
   const [appliedAvailability, setAppliedAvailability] = useState("");
   const [appliedMaxTjm, setAppliedMaxTjm] = useState("");
   const [sortBy, setSortBy] = useState<"PERTINENCE" | "TJM_ASC" | "TJM_DESC">("PERTINENCE");
+
+  // Ajout pour charger les vrais profils
+  const [talents, setTalents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTalents = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (appliedQuery) params.append("search", appliedQuery);
+      if (appliedAvailability) params.append("availability", appliedAvailability);
+      if (appliedMaxTjm) params.append("maxTjm", appliedMaxTjm);
+      params.append("limit", "50");
+      const res = await fetch(`/api/search/candidates?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setTalents(data.data.candidates || []);
+      } else {
+        setError("Erreur lors du chargement des profils.");
+      }
+    } catch (e) {
+      setError("Erreur lors du chargement des profils.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTalents();
+    // eslint-disable-next-line
+  }, [appliedQuery, appliedAvailability, appliedMaxTjm]);
 
   const applyFilters = () => {
     setAppliedQuery(query.trim().toLowerCase());
@@ -109,41 +73,18 @@ export default function CVthequePage() {
     setVisibleCount(PAGE_SIZE);
   };
 
+  // Tri et filtrage côté client si besoin
   const filteredTalents = useMemo(() => {
-    const base = MOCK_TALENTS.filter((talent) => {
-      const text = `${talent.firstName} ${talent.lastName} ${talent.title} ${talent.tags.join(" ")} ${talent.location}`.toLowerCase();
-      const matchesText = !appliedQuery || text.includes(appliedQuery);
-
-      const availabilityNormalized = talent.availability.toLowerCase();
-      const matchesAvailability =
-        !appliedAvailability ||
-        (appliedAvailability === "immediat" && availabilityNormalized.includes("disponible")) ||
-        (appliedAvailability === "1mois" && availabilityNormalized.includes("1 mois")) ||
-        (appliedAvailability === "ecoute" && availabilityNormalized.includes("écoute"));
-
-      const tjmValue = parseInt(talent.tjm, 10);
-      const maxTjmValue = appliedMaxTjm ? parseInt(appliedMaxTjm, 10) : NaN;
-      const matchesTjm = Number.isNaN(maxTjmValue) || tjmValue <= maxTjmValue;
-
-      return matchesText && matchesAvailability && matchesTjm;
-    });
-
+    let base = talents;
     if (sortBy === "TJM_ASC") {
-      return [...base].sort((a, b) => parseInt(a.tjm, 10) - parseInt(b.tjm, 10));
+      base = [...base].sort((a, b) => (a.tjm || 0) - (b.tjm || 0));
+    } else if (sortBy === "TJM_DESC") {
+      base = [...base].sort((a, b) => (b.tjm || 0) - (a.tjm || 0));
     }
-    if (sortBy === "TJM_DESC") {
-      return [...base].sort((a, b) => parseInt(b.tjm, 10) - parseInt(a.tjm, 10));
-    }
-
     return base;
-  }, [appliedAvailability, appliedMaxTjm, appliedQuery, sortBy]);
-
-  const cycleSort = () => {
-    setSortBy((prev) => (prev === "PERTINENCE" ? "TJM_ASC" : prev === "TJM_ASC" ? "TJM_DESC" : "PERTINENCE"));
-  };
+  }, [talents, sortBy]);
 
   const sortLabel = sortBy === "PERTINENCE" ? "Pertinence" : sortBy === "TJM_ASC" ? "TJM croissant" : "TJM decroissant";
-
   const displayedTalents = filteredTalents.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredTalents.length;
 

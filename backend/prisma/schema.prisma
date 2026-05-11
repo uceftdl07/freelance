@@ -10,6 +10,8 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  // Supabase/pgBouncer: disable prepared statement caching to avoid "42P05" errors
+  // This is automatically appended to DATABASE_URL if not present
 }
 
 // ─── User ─────────────────────────────────────

@@ -6,20 +6,34 @@ const prisma = new PrismaClient();
 
 function isPreparedStatementPoolError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes('prepared statement') &&
-    (message.includes('does not exist') || message.includes('already exists'))
-  );
+  const fullError = JSON.stringify(error);
+
+  // Check message for prepared statement errors
+  const hasPreparedStatementKeywords = message.includes('prepared statement') &&
+    (message.includes('does not exist') || message.includes('already exists'));
+
+  // Also check for PostgresError code 42P05 (DUPLICATE_PREPARED_STATEMENT)
+  const hasPostgresErrorCode = fullError.includes("42P05") ||
+    fullError.includes("already exists");
+
+  return hasPreparedStatementKeywords || hasPostgresErrorCode;
 }
 
-async function withRetry<T>(query: () => Promise<T>, label = "query"): Promise<T> {
+async function withRetry<T>(query: () => Promise<T>, label = "query", retryCount = 0): Promise<T> {
   try {
     return await query();
   } catch (error) {
     if (!isPreparedStatementPoolError(error)) throw error;
-    console.warn(`[PROFILE] Retrying ${label} after prepared-statement error`);
+    if (retryCount >= 2) throw error; // Max 2 retries to avoid infinite loops
+
+    console.warn(`[PROFILE] Retrying ${label} after prepared-statement error (attempt ${retryCount + 1}/2)`);
     await prisma.$disconnect();
-    return query();
+
+    // Wait 2 seconds for pgBouncer to properly clean up the pool and reset prepared statements
+    console.log(`[PROFILE] Waiting 2s before retry...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    return withRetry(query, label, retryCount + 1);
   }
 }
 

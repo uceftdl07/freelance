@@ -301,7 +301,7 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
-        ...(location !== undefined && { location }),
+        ...(location !== undefined && { location: (location && location.trim()) || "Non précisé" }),
         ...(remote !== undefined && { remote: Boolean(remote) }),
         ...(contractType !== undefined && { contractType }),
         ...(tjm !== undefined && { tjm: parseOptionalInt(tjm) }),

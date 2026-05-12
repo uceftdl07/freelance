@@ -507,7 +507,7 @@ export default function RecruteurParametresPage() {
         accentColor="#10b981"
       >
         <div className="space-y-5 pt-3">
-          {verifStatus === "VERIFIED" ? (
+          {verifStatus === "VERIFIED" && (
             <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
               <HiCheckBadge className="w-6 h-6 text-emerald-600" />
               <div>
@@ -515,15 +515,27 @@ export default function RecruteurParametresPage() {
                 <p className="text-xs text-emerald-600">Vos offres affichent le badge officiel.</p>
               </div>
             </div>
-          ) : verifStatus === "PENDING" ? (
+          )}
+          {verifStatus === "PENDING" && (
             <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
               <HiArrowPath className="w-6 h-6 text-amber-600" />
               <div>
                 <p className="text-sm font-bold text-amber-700">En cours de vérification</p>
-                <p className="text-xs text-amber-600">Vous serez notifié sous 48h.</p>
+                <p className="text-xs text-amber-600">Vous pouvez renvoyer un document tant que la validation n&apos;est pas terminée.</p>
               </div>
             </div>
-          ) : (
+          )}
+          {verifStatus === "REJECTED" && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl">
+              <HiXMark className="w-6 h-6 text-rose-600" />
+              <div>
+                <p className="text-sm font-bold text-rose-700">Document refusé</p>
+                <p className="text-xs text-rose-600">Renvoyez un nouveau document pour relancer la vérification.</p>
+              </div>
+            </div>
+          )}
+
+          {verifStatus !== "VERIFIED" && (
             <>
               <p className="text-sm text-gray-600">
                 Envoyez votre <strong>Kbis</strong> (France) ou <strong>ICE</strong> (Maroc) au format PDF, PNG ou JPEG (max 5 Mo).
@@ -535,7 +547,7 @@ export default function RecruteurParametresPage() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-gray-200 text-gray-700 hover:border-emerald-500 hover:text-emerald-600 transition-all cursor-pointer"
                 >
                   <HiOutlineDocumentArrowUp className="w-4 h-4" />
-                  {verifFile ? verifFile.name : "Choisir un document"}
+                  {verifFile ? verifFile.name : (verifStatus === "PENDING" ? "Remplacer le document" : "Choisir un document")}
                 </button>
                 <input
                   ref={verifInputRef}
@@ -551,7 +563,7 @@ export default function RecruteurParametresPage() {
                 className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-60 flex items-center gap-2"
                 style={{ backgroundColor: "#10b981", boxShadow: "0 4px 14px rgba(16,185,129,0.25)" }}
               >
-                {verifUploading ? (<><HiArrowPath className="w-4 h-4 animate-spin" />Envoi…</>) : "Envoyer le document"}
+                {verifUploading ? (<><HiArrowPath className="w-4 h-4 animate-spin" />Envoi…</>) : (verifStatus === "PENDING" ? "Remplacer le document" : "Envoyer le document")}
               </button>
             </>
           )}

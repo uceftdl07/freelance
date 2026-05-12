@@ -20,6 +20,8 @@ import {
   HiXMark,
   HiPaperAirplane,
   HiUser,
+  HiTrophy,
+  HiArrowRight,
 } from "react-icons/hi2";
 
 interface JobOffer {
@@ -34,6 +36,7 @@ interface JobOffer {
   salaryMin: number | null;
   salaryMax: number | null;
   tags: string[];
+  requiredQuizzes: Array<{ skill: string; minScore: number }>;
   status: string;
   createdAt: string;
   recruiter?: {
@@ -162,11 +165,12 @@ export default function OffreDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const jobId = params?.id || "";
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   const [job, setJob] = useState<JobOffer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myQuizScores, setMyQuizScores] = useState<Map<string, number>>(new Map());
 
   const [isSaved, setIsSaved] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -180,11 +184,26 @@ export default function OffreDetailsPage() {
     (async () => {
       setLoading(true); setError(null);
       const res = await apiRequest<JobOffer>(`/jobs/${jobId}`);
-      if (res.success && res.data) setJob(res.data);
+      if (res.success && res.data) setJob({ ...res.data, requiredQuizzes: res.data.requiredQuizzes || [] });
       else setError(res.message || "Offre introuvable.");
       setLoading(false);
     })();
   }, [jobId]);
+
+  useEffect(() => {
+    if (!token || !user || user.role !== "CANDIDAT") return;
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+    fetch(`${API_BASE}/quizzes/me/scores`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const map = new Map<string, number>();
+          for (const s of data.data) map.set(s.skill, s.score);
+          setMyQuizScores(map);
+        }
+      })
+      .catch(() => {});
+  }, [token, user]);
 
   useEffect(() => {
     if (!job) return;
@@ -321,6 +340,48 @@ export default function OffreDetailsPage() {
                         {tag}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {job.requiredQuizzes?.length > 0 && (
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-gray-800 mb-4 text-sm flex items-center gap-2">
+                    <HiTrophy className="w-4 h-4 text-amber-500" /> Tests techniques requis
+                  </h3>
+                  <div className="space-y-3">
+                    {job.requiredQuizzes.map((q) => {
+                      const myScore = myQuizScores.get(q.skill);
+                      const passed = myScore !== undefined && myScore >= q.minScore;
+                      const attempted = myScore !== undefined;
+                      return (
+                        <div key={q.skill} className={`flex items-center justify-between gap-4 p-3.5 rounded-xl border ${passed ? "border-emerald-200 bg-emerald-50" : attempted ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${passed ? "bg-emerald-500" : attempted ? "bg-amber-500" : "bg-gray-300"}`}>
+                              <HiTrophy className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">{q.skill}</p>
+                              <p className="text-xs text-gray-500">Score minimum : {q.minScore}%</p>
+                            </div>
+                          </div>
+                          {passed ? (
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+                              <HiCheckCircle className="w-4 h-4" /> Validé ({myScore}%)
+                            </span>
+                          ) : user?.role === "CANDIDAT" ? (
+                            <a
+                              href={`/dashboard/candidat/quiz/${encodeURIComponent(q.skill)}`}
+                              className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-full transition-colors"
+                            >
+                              {attempted ? `${myScore}% — Réessayer` : "Passer le test"} <HiArrowRight className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-500 font-semibold">Requis</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

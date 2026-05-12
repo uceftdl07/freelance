@@ -26,6 +26,8 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
       minTjm,
       maxTjm,
       search,
+      quizSkill,
+      quizMinScore,
       page = "1",
       limit = "12",
     } = req.query;
@@ -97,6 +99,27 @@ export async function searchCandidates(req: Request, res: Response): Promise<voi
         { title: { contains: search, mode: "insensitive" } },
         { bio: { contains: search, mode: "insensitive" } },
       ];
+    }
+
+    // Quiz filter: find candidateIds who passed the quiz with minScore
+    let quizFilterIds: string[] | null = null;
+    if (quizSkill && typeof quizSkill === "string") {
+      const minScore = quizMinScore ? parseInt(quizMinScore as string, 10) : 0;
+      const quiz = await prisma.quiz.findUnique({ where: { skill: quizSkill }, select: { id: true } });
+      if (quiz) {
+        const attempts = await prisma.quizAttempt.findMany({
+          where: { quizId: quiz.id, score: { gte: minScore } },
+          select: { candidateId: true },
+          distinct: ["candidateId"],
+        });
+        quizFilterIds = attempts.map((a) => a.candidateId);
+      } else {
+        quizFilterIds = [];
+      }
+    }
+
+    if (quizFilterIds !== null) {
+      where.userId = { in: quizFilterIds };
     }
 
     // Execute query with count

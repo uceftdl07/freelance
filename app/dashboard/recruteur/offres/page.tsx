@@ -15,7 +15,13 @@ import {
   HiXMark,
   HiOutlinePlay,
   HiCheckCircle,
+  HiTrophy,
 } from "react-icons/hi2";
+
+interface RequiredQuiz {
+  skill: string;
+  minScore: number;
+}
 
 interface Offer {
   id: string;
@@ -30,6 +36,7 @@ interface Offer {
   description: string;
   skills: string[];
   typeColor: string;
+  requiredQuizzes: RequiredQuiz[];
 }
 
 interface ApiJobOffer {
@@ -42,7 +49,10 @@ interface ApiJobOffer {
   createdAt: string;
   description: string;
   tags: string[];
+  requiredQuizzes: RequiredQuiz[];
 }
+
+const AVAILABLE_QUIZZES = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science"];
 
 const INITIAL_OFFERS: Offer[] = [
   {
@@ -58,6 +68,7 @@ const INITIAL_OFFERS: Offer[] = [
     description: "Nous cherchons un ingénieur Cloud expérimenté pour une mission de migration vers AWS.",
     skills: ["AWS", "Terraform", "Docker"],
     typeColor: "bg-[#00b8d9]/10 text-[#00b8d9]",
+    requiredQuizzes: [],
   },
   {
     id: "2",
@@ -72,6 +83,7 @@ const INITIAL_OFFERS: Offer[] = [
     description: "Rejoignez notre équipe pour développer notre plateforme SaaS en React et Node.js.",
     skills: ["React", "Node.js", "TypeScript"],
     typeColor: "bg-indigo-100 text-indigo-700",
+    requiredQuizzes: [],
   },
   {
     id: "3",
@@ -86,6 +98,7 @@ const INITIAL_OFFERS: Offer[] = [
     description: "Lead technique data engineering pour refonte du pipeline de données.",
     skills: ["Python", "Spark", "Airflow"],
     typeColor: "bg-[#00b8d9]/10 text-[#00b8d9]",
+    requiredQuizzes: [],
   },
   {
     id: "4",
@@ -100,6 +113,7 @@ const INITIAL_OFFERS: Offer[] = [
     description: "Gestion de la roadmap produit pour notre offre B2B SaaS.",
     skills: ["Product Management", "Agile", "B2B"],
     typeColor: "bg-purple-100 text-purple-700",
+    requiredQuizzes: [],
   },
 ];
 
@@ -153,6 +167,7 @@ function mapApiToOffer(job: ApiJobOffer): Offer {
     description: job.description,
     skills: Array.isArray(job.tags) ? job.tags : [],
     typeColor: getTypeColor(type),
+    requiredQuizzes: Array.isArray(job.requiredQuizzes) ? job.requiredQuizzes : [],
   };
 }
 
@@ -172,6 +187,7 @@ export default function RecruteurOffresPage() {
   const [formLocation, setFormLocation] = useState("");
   const [formTjm, setFormTjm] = useState("");
   const [formSkills, setFormSkills] = useState("");
+  const [formQuizzes, setFormQuizzes] = useState<RequiredQuiz[]>([]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -213,6 +229,7 @@ export default function RecruteurOffresPage() {
     setFormLocation("");
     setFormTjm("");
     setFormSkills("");
+    setFormQuizzes([]);
     setModalOpen(true);
   };
 
@@ -224,7 +241,20 @@ export default function RecruteurOffresPage() {
     setFormLocation(offer.location);
     setFormTjm(offer.tjm);
     setFormSkills(offer.skills.join(", "));
+    setFormQuizzes(offer.requiredQuizzes || []);
     setModalOpen(true);
+  };
+
+  const toggleQuiz = (skill: string) => {
+    setFormQuizzes((prev) => {
+      const exists = prev.find((q) => q.skill === skill);
+      if (exists) return prev.filter((q) => q.skill !== skill);
+      return [...prev, { skill, minScore: 70 }];
+    });
+  };
+
+  const updateQuizScore = (skill: string, minScore: number) => {
+    setFormQuizzes((prev) => prev.map((q) => q.skill === skill ? { ...q, minScore } : q));
   };
 
   const handleSave = async () => {
@@ -238,6 +268,7 @@ export default function RecruteurOffresPage() {
       location: formLocation,
       tjm: formTjm ? parseInt(formTjm.replace(/\D/g, ""), 10) || null : null,
       tags: formSkills.split(",").map((s) => s.trim()).filter(Boolean),
+      requiredQuizzes: formQuizzes,
       status: editingOffer ? editingOffer.apiStatus : "ACTIVE",
     };
 
@@ -409,6 +440,15 @@ export default function RecruteurOffresPage() {
                     <HiOutlineDocumentText className="w-4 h-4 text-gray-400" /> Créée {offer.date}
                   </span>
                 </div>
+                {offer.requiredQuizzes?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {offer.requiredQuizzes.map((q) => (
+                      <span key={q.skill} className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        <HiTrophy className="w-3 h-3" /> {q.skill} ≥{q.minScore}%
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Middle part: Counter */}
@@ -544,6 +584,54 @@ export default function RecruteurOffresPage() {
                   placeholder="React, TypeScript, Node.js"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00b8d9] transition-colors"
                 />
+              </div>
+
+              {/* Quiz requirements */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-2 block flex items-center gap-1.5">
+                  <HiTrophy className="w-4 h-4 text-[#00b8d9]" /> Tests techniques requis
+                  <span className="text-xs font-normal text-gray-400 ml-1">(optionnel)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {AVAILABLE_QUIZZES.map((skill) => {
+                    const selected = formQuizzes.find((q) => q.skill === skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleQuiz(skill)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          selected
+                            ? "bg-[#00b8d9] text-white border-[#00b8d9]"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-[#00b8d9] hover:text-[#00b8d9]"
+                        }`}
+                      >
+                        {selected ? "✓ " : ""}{skill}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formQuizzes.length > 0 && (
+                  <div className="space-y-2">
+                    {formQuizzes.map((q) => (
+                      <div key={q.skill} className="flex items-center gap-3 p-2.5 bg-[#00b8d9]/5 rounded-xl border border-[#00b8d9]/20">
+                        <span className="text-xs font-bold text-[#0a1628] flex-1">{q.skill}</span>
+                        <span className="text-xs text-gray-500">Score min :</span>
+                        <select
+                          value={q.minScore}
+                          onChange={(e) => updateQuizScore(q.skill, parseInt(e.target.value, 10))}
+                          className="text-xs font-bold text-[#0a1628] bg-white border border-gray-200 rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-[#00b8d9]"
+                        >
+                          <option value={50}>50%</option>
+                          <option value={60}>60%</option>
+                          <option value={70}>70%</option>
+                          <option value={80}>80%</option>
+                          <option value={90}>90%</option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

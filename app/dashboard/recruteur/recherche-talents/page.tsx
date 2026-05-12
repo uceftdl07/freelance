@@ -11,6 +11,7 @@ import {
   HiOutlineCurrencyEuro,
   HiChatBubbleLeftEllipsis,
   HiMapPin,
+  HiTrophy,
 } from "react-icons/hi2";
 
 type Talent = {
@@ -24,6 +25,8 @@ type Talent = {
   skills: string[];
   tjm: number | null;
 };
+
+const QUIZ_SKILLS = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science"];
 
 function availabilityColor(availability: string) {
   if (availability === "DISPONIBLE") return "bg-emerald-100 text-emerald-700";
@@ -44,9 +47,11 @@ export default function CVthequePage() {
   const [maxTjm, setMaxTjm] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  const [quizFilter, setQuizFilter] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [appliedAvailability, setAppliedAvailability] = useState("");
   const [appliedMaxTjm, setAppliedMaxTjm] = useState("");
+  const [appliedQuizFilter, setAppliedQuizFilter] = useState("");
   const [sortBy, setSortBy] = useState<"PERTINENCE" | "TJM_ASC" | "TJM_DESC">("PERTINENCE");
 
   const [talents, setTalents] = useState<Talent[]>([]);
@@ -64,6 +69,7 @@ export default function CVthequePage() {
       if (appliedQuery) params.append("search", appliedQuery);
       if (appliedAvailability) params.append("availability", appliedAvailability);
       if (appliedMaxTjm) params.append("maxTjm", appliedMaxTjm);
+      if (appliedQuizFilter) params.append("quizSkill", appliedQuizFilter);
       params.append("limit", "50");
 
       const res = await apiRequest<{ candidates: Talent[] }>(`/search/candidates?${params.toString()}`);
@@ -82,12 +88,13 @@ export default function CVthequePage() {
   useEffect(() => {
     fetchTalents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedQuery, appliedAvailability, appliedMaxTjm]);
+  }, [appliedQuery, appliedAvailability, appliedMaxTjm, appliedQuizFilter]);
 
   const applyFilters = () => {
     setAppliedQuery(query.trim());
     setAppliedAvailability(availability);
     setAppliedMaxTjm(maxTjm);
+    setAppliedQuizFilter(quizFilter);
     setVisibleCount(PAGE_SIZE);
   };
 
@@ -95,9 +102,11 @@ export default function CVthequePage() {
     setQuery("");
     setAvailability("");
     setMaxTjm("");
+    setQuizFilter("");
     setAppliedQuery("");
     setAppliedAvailability("");
     setAppliedMaxTjm("");
+    setAppliedQuizFilter("");
     setVisibleCount(PAGE_SIZE);
   };
 
@@ -169,6 +178,20 @@ export default function CVthequePage() {
           />
         </div>
 
+        <div className="flex items-center bg-gray-50 rounded-2xl px-4 py-3 border border-transparent focus-within:border-[#00b8d9]/50 transition-colors md:w-52">
+          <HiTrophy className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+          <select
+            value={quizFilter}
+            onChange={(e) => setQuizFilter(e.target.value)}
+            className="bg-transparent w-full text-sm text-gray-700 outline-none cursor-pointer"
+          >
+            <option value="">QCM validé</option>
+            {QUIZ_SKILLS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
         <button
           onClick={resetFilters}
           className="px-5 flex items-center justify-center text-gray-500 hover:text-[#00b8d9] hover:bg-cyan-50 rounded-2xl transition-colors"
@@ -190,9 +213,16 @@ export default function CVthequePage() {
         <div className="text-center py-8 text-red-500 text-sm">{error}</div>
       ) : (
         <div className="flex items-center justify-between">
-          <p className="text-sm font-bold text-gray-700">
-            <span style={{ color: "#00b8d9" }}>{filteredTalents.length}</span> profils correspondants
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-bold text-gray-700">
+              <span style={{ color: "#00b8d9" }}>{filteredTalents.length}</span> profils correspondants
+            </p>
+            {appliedQuizFilter && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                <HiTrophy className="w-3.5 h-3.5" /> {appliedQuizFilter} validé
+              </span>
+            )}
+          </div>
           <div className="text-sm text-gray-500">
             Trier par :{" "}
             <button

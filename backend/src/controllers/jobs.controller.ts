@@ -7,6 +7,11 @@ const prisma = new PrismaClient();
 const contractTypes = ["FREELANCE", "CDI", "CDD", "STAGE"] as const;
 const statuses = ["ACTIVE", "CLOSED", "DRAFT"] as const;
 
+const requiredQuizSchema = z.array(z.object({
+  skill: z.string(),
+  minScore: z.number().int().min(0).max(100),
+})).optional();
+
 const createJobOfferSchema = z.object({
   title: z.string().trim().min(2, "Le titre doit contenir au moins 2 caractères."),
   description: z.string().trim().min(10, "La description doit contenir au moins 10 caractères."),
@@ -18,6 +23,7 @@ const createJobOfferSchema = z.object({
   salaryMin: z.union([z.number().int().nonnegative(), z.string().trim()]).optional().nullable(),
   salaryMax: z.union([z.number().int().nonnegative(), z.string().trim()]).optional().nullable(),
   tags: z.union([z.array(z.string()), z.string()]).optional(),
+  requiredQuizzes: requiredQuizSchema,
   status: z.enum(statuses).optional(),
 });
 
@@ -59,6 +65,26 @@ function parseStoredTags(value: string): string[] {
   } catch {
     return [];
   }
+}
+
+type RequiredQuiz = { skill: string; minScore: number };
+
+function parseRequiredQuizzes(value: string): RequiredQuiz[] {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatJobWithQuizzes(job: any) {
+  return {
+    ...job,
+    tags: parseStoredTags(job.tags ?? "[]"),
+    requiredQuizzes: parseRequiredQuizzes(job.requiredQuizzes ?? "[]"),
+  };
 }
 
 /**
@@ -139,26 +165,30 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
       salaryMin,
       salaryMax,
       tags = [],
+      requiredQuizzes = [],
       status = "ACTIVE",
     } = validation.data;
 
     const company = inputCompany || recruiterProfile?.company || "Entreprise";
 
+    const createData = {
+      recruiterId: userId,
+      title,
+      company,
+      description,
+      location: (location && location.trim()) || "Non précisé",
+      remote: Boolean(remote),
+      contractType,
+      tjm: parseOptionalInt(tjm),
+      salaryMin: parseOptionalInt(salaryMin),
+      salaryMax: parseOptionalInt(salaryMax),
+      tags: JSON.stringify(normalizeTags(tags)),
+      requiredQuizzes: JSON.stringify(requiredQuizzes || []),
+      status,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const jobOffer = await prisma.jobOffer.create({
-      data: {
-        recruiterId: userId,
-        title,
-        company,
-        description,
-        location: (location && location.trim()) || "Non précisé",
-        remote: Boolean(remote),
-        contractType,
-        tjm: parseOptionalInt(tjm),
-        salaryMin: parseOptionalInt(salaryMin),
-        salaryMax: parseOptionalInt(salaryMax),
-        tags: JSON.stringify(normalizeTags(tags)),
-        status,
-      },
+      data: createData as any,
       include: {
         recruiter: {
           select: { email: true },
@@ -174,10 +204,7 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
     res.status(201).json({
       success: true,
       message: "Offre créée avec succès.",
-      data: {
-        ...jobOffer,
-        tags: parseStoredTags(jobOffer.tags),
-      },
+      data: formatJobWithQuizzes(jobOffer as Parameters<typeof formatJobWithQuizzes>[0]),
     });
   } catch (error) {
     console.error("[Jobs] Create error:", error);
@@ -232,10 +259,7 @@ export async function getJobOffers(req: Request, res: Response): Promise<void> {
     });
 
     // Post-process: apply text search and tags filter in JS (SQLite limitation)
-    let results = jobOffers.map((job) => ({
-      ...job,
-      tags: parseStoredTags(job.tags),
-    }));
+    let results = jobOffers.map((job) => formatJobWithQuizzes(job as Parameters<typeof formatJobWithQuizzes>[0]));
 
     // Filter by search keyword
     if (search && typeof search === "string") {
@@ -291,10 +315,7 @@ export async function getMyJobOffers(req: Request, res: Response): Promise<void>
       orderBy: { createdAt: "desc" },
     });
 
-    const results = jobOffers.map((job) => ({
-      ...job,
-      tags: parseStoredTags(job.tags),
-    }));
+    const results = jobOffers.map((job) => formatJobWithQuizzes(job as Parameters<typeof formatJobWithQuizzes>[0]));
 
     res.json({
       success: true,
@@ -336,7 +357,7 @@ export async function getJobOfferById(req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, message: "Offre non trouvée." });
       return;
     }
-    res.json({ success: true, data: { ...job, tags: parseStoredTags(job.tags) } });
+    res.json({ success: true, data: formatJobWithQuizzes(job as Parameters<typeof formatJobWithQuizzes>[0]) });
   } catch (error) {
     console.error("[Jobs] GetById error:", error);
     res.status(500).json({ success: false, message: "Erreur lors de la récupération de l'offre." });
@@ -373,7 +394,7 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { title, description, location, remote, contractType, tjm, salaryMin, salaryMax, tags, status } = validation.data;
+    const { title, description, location, remote, contractType, tjm, salaryMin, salaryMax, tags, requiredQuizzes, status } = validation.data;
 
     const updated = await prisma.jobOffer.update({
       where: { id: jobId },
@@ -387,6 +408,7 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
         ...(salaryMin !== undefined && { salaryMin: parseOptionalInt(salaryMin) }),
         ...(salaryMax !== undefined && { salaryMax: parseOptionalInt(salaryMax) }),
         ...(tags !== undefined && { tags: JSON.stringify(normalizeTags(tags)) }),
+        ...(requiredQuizzes !== undefined && { requiredQuizzes: JSON.stringify(requiredQuizzes || []) } as Record<string, unknown>),
         ...(status !== undefined && { status }),
       },
     });
@@ -394,7 +416,7 @@ export async function updateJobOffer(req: Request, res: Response): Promise<void>
     res.json({
       success: true,
       message: "Offre mise à jour.",
-      data: { ...updated, tags: parseStoredTags(updated.tags) },
+      data: formatJobWithQuizzes(updated as Parameters<typeof formatJobWithQuizzes>[0]),
     });
   } catch (error) {
     console.error("[Jobs] Update error:", error);

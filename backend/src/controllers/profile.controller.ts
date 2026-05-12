@@ -1,8 +1,58 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import { supabaseAdmin } from "../utils/supabase";
 
 const prisma = new PrismaClient();
+
+// ─── Verification doc upload ──────────────────
+const verifStorage = multer.memoryStorage();
+export const verifUploadMiddleware = multer({
+  storage: verifStorage,
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["application/pdf", "image/png", "image/jpeg"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Formats acceptés : PDF, PNG, JPEG."));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single("doc");
+
+export async function submitVerification(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    if (req.user!.role !== "RECRUTEUR") {
+      res.status(403).json({ success: false, message: "Réservé aux recruteurs." });
+      return;
+    }
+    const file = (req as Request & { file?: Express.Multer.File }).file;
+    if (!file) {
+      res.status(400).json({ success: false, message: "Document requis." });
+      return;
+    }
+    const ext = path.extname(file.originalname) || "";
+    const fileName = `verif-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const { data, error } = await supabaseAdmin.storage
+      .from("resumes")
+      .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: false });
+    if (error) throw new Error(error.message);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from("resumes").getPublicUrl(data.path);
+
+    const updated = await prisma.profileRecruteur.update({
+      where: { userId },
+      data: {
+        verificationDocUrl: publicUrl,
+        verificationStatus: "PENDING",
+      },
+      select: { verificationStatus: true, verificationDocUrl: true },
+    });
+    res.json({ success: true, message: "Document envoyé. Vérification en cours.", data: updated });
+  } catch (error) {
+    console.error("[PROFILE] SubmitVerification error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors de l'envoi du document." });
+  }
+}
 
 function isPreparedStatementPoolError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -144,6 +194,8 @@ export async function getMyProfile(
                   phone: true,
                   website: true,
                   avatarUrl: true,
+                  verificationStatus: true,
+                  verificationDocUrl: true,
                 },
               }
             : false,
@@ -286,6 +338,7 @@ export async function getPublicProfile(
             position: true,
             website: true,
             avatarUrl: true,
+            verificationStatus: true,
           },
         },
       },

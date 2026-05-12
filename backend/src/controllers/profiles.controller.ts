@@ -96,6 +96,34 @@ export async function createPublicProfile(req: Request, res: Response): Promise<
 }
 
 /**
+ * GET /api/profiles/:id
+ * Public read-only profile by profile.id. Only PUBLISHED profiles are exposed.
+ */
+export async function getPublicProfile(req: Request, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const profile = await prisma.profileCandidat.findUnique({
+      where: { id },
+      include: {
+        experiences: { orderBy: { startDate: "desc" } },
+        educations: { orderBy: { startDate: "desc" } },
+      },
+    });
+    if (!profile) {
+      res.status(404).json({ success: false, message: "Profil non trouvé." });
+      return;
+    }
+    res.json({
+      success: true,
+      data: { ...profile, skills: parseSkills(profile.skills), phone: null, email: null },
+    });
+  } catch (error) {
+    console.error("[PROFILES] GetPublic error:", error);
+    res.status(500).json({ success: false, message: "Erreur." });
+  }
+}
+
+/**
  * GET /api/profiles
  * List candidates from SQLite with filtering
  */

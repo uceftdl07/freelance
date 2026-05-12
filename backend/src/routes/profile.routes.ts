@@ -1,8 +1,10 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { authMiddleware } from "../middleware/auth";
 import {
   getMyProfile,
   updateMyProfile,
+  verifUploadMiddleware,
+  submitVerification,
   getMySettings,
   updateMySettings,
   getPublicProfile,
@@ -110,6 +112,25 @@ router.put("/educations/:id", authMiddleware, updateEducation);
  * @access  Private (JWT required)
  */
 router.delete("/educations/:id", authMiddleware, deleteEducation);
+
+/**
+ * @route   POST /api/profile/verification
+ * @desc    Recruiter uploads Kbis/ICE for verification (status -> PENDING)
+ */
+router.post(
+  "/verification",
+  authMiddleware,
+  (req: Request, res: Response, next: NextFunction) => {
+    verifUploadMiddleware(req, res, (err: unknown) => {
+      if (err) {
+        res.status(400).json({ success: false, message: (err as Error).message || "Upload échoué." });
+        return;
+      }
+      next();
+    });
+  },
+  submitVerification
+);
 
 /**
  * @route   GET /api/profile/:id

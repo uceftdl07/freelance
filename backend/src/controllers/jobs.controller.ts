@@ -278,7 +278,7 @@ export async function getJobOfferById(req: Request, res: Response): Promise<void
           select: {
             email: true,
             profileRecruteur: {
-              select: { company: true, firstName: true, lastName: true, website: true, avatarUrl: true },
+              select: { company: true, firstName: true, lastName: true, website: true, avatarUrl: true, verificationStatus: true },
             },
           },
         },

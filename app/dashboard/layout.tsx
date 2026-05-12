@@ -1,10 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
+import { apiRequest } from "../lib/api";
 import Link from "next/link";
 import WelcomeModal from "./WelcomeModal";
+
+type Notif = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+};
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "À l'instant";
+  if (m < 60) return `Il y a ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Il y a ${h}h`;
+  const d = Math.floor(h / 24);
+  return `Il y a ${d}j`;
+}
 import {
   HiHome,
   HiBriefcase,
@@ -62,9 +83,36 @@ export default function DashboardLayout({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+
+  const fetchNotifs = useCallback(async () => {
+    const r = await apiRequest<{ notifications: Notif[]; unreadCount: number }>("/notifications");
+    if (r.success && r.data) {
+      setNotifs(r.data.notifications);
+      setUnreadCount(r.data.unreadCount);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchNotifs();
+    const t = setInterval(fetchNotifs, 30000);
+    return () => clearInterval(t);
+  }, [fetchNotifs]);
+
+  const handleOpenNotifs = async () => {
+    const next = !notifOpen;
+    setNotifOpen(next);
+    setDropdownOpen(false);
+    if (next && unreadCount > 0) {
+      await apiRequest("/notifications/read", { method: "PUT" });
+      setUnreadCount(0);
+      setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
+  };
 
   // Show welcome modal if user hasn't completed onboarding
   useEffect(() => {
@@ -218,34 +266,48 @@ export default function DashboardLayout({
             {/* Notification bell + dropdown */}
             <div className="relative">
               <button
-                onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
+                onClick={handleOpenNotifs}
                 className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors cursor-pointer"
               >
                 <HiBell className="w-5 h-5" />
-                <span
-                  className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white"
-                  style={{ backgroundColor: "#ef4444" }}
-                />
+                {unreadCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full border-2 border-white text-[10px] font-bold text-white flex items-center justify-center"
+                    style={{ backgroundColor: "#ef4444" }}
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
               </button>
               {notifOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-3 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 pb-2 border-b border-gray-100 flex items-center justify-between">
                     <h4 className="text-sm font-bold text-gray-900">Notifications</h4>
-                    <span className="text-[10px] font-bold text-[#00b8d9] bg-[#00b8d9]/10 px-2 py-0.5 rounded-full">3 nouvelles</span>
+                    {notifs.length > 0 && (
+                      <span className="text-[10px] font-bold text-[#00b8d9] bg-[#00b8d9]/10 px-2 py-0.5 rounded-full">
+                        {notifs.length}
+                      </span>
+                    )}
                   </div>
-                  <div className="py-1">
-                    <div className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-[#00b8d9]">
-                      <p className="text-sm text-gray-800 font-medium">🚀 Une nouvelle offre correspond à votre profil</p>
-                      <p className="text-[11px] text-gray-400 mt-1">Il y a 5 minutes</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-[#00b8d9]">
-                      <p className="text-sm text-gray-800 font-medium">👀 L&apos;entreprise Qonto a consulté votre profil</p>
-                      <p className="text-[11px] text-gray-400 mt-1">Il y a 2 heures</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent">
-                      <p className="text-sm text-gray-600">✅ Bienvenue sur FreelanceIT ! Complétez votre profil.</p>
-                      <p className="text-[11px] text-gray-400 mt-1">Il y a 1 jour</p>
-                    </div>
+                  <div className="py-1 max-h-96 overflow-y-auto">
+                    {notifs.length === 0 ? (
+                      <p className="px-4 py-6 text-sm text-gray-400 italic text-center">Aucune notification</p>
+                    ) : (
+                      notifs.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`px-4 py-3 hover:bg-gray-50 transition-colors border-l-4 ${
+                            n.read ? "border-transparent" : "border-[#00b8d9]"
+                          }`}
+                        >
+                          <p className={`text-sm ${n.read ? "text-gray-600" : "text-gray-800 font-medium"}`}>
+                            {n.title}
+                          </p>
+                          {n.message && <p className="text-[12px] text-gray-500 mt-0.5">{n.message}</p>}
+                          <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                   <div className="px-4 pt-2 border-t border-gray-100">
                     <Link href={isRecruteur ? "/dashboard/recruteur/alertes" : "/dashboard/candidat/alertes"} onClick={() => setNotifOpen(false)} className="text-xs font-bold text-[#00b8d9] hover:underline">Voir toutes les notifications →</Link>

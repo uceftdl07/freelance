@@ -12,6 +12,7 @@ import profilesRoutes from "./routes/profiles.routes";
 import jobsRoutes from "./routes/jobs.routes";
 import applicationsRoutes from "./routes/applications.routes";
 import messagingRoutes from "./routes/messaging.routes";
+import { scheduleJobAlerts, sendJobAlerts } from "./services/email-alerts";
 // ─── Create Express App ───────────────────────
 
 const app = express();
@@ -127,6 +128,16 @@ app.use("/api/applications", applicationsRoutes);
 // Messaging routes
 app.use("/api/messaging", messagingRoutes);
 
+// Manual trigger for job-alerts cron (admin/debug — protect with header secret).
+app.post("/api/admin/run-job-alerts", async (req: express.Request, res: express.Response) => {
+  if (req.headers["x-admin-token"] !== process.env.ADMIN_TOKEN) {
+    res.status(403).json({ success: false, message: "Forbidden" });
+    return;
+  }
+  const result = await sendJobAlerts();
+  res.json({ success: true, data: result });
+});
+
 // ─── 404 Handler ──────────────────────────────
 
 app.use((_req: express.Request, res: express.Response) => {
@@ -156,6 +167,8 @@ app.use(
 );
 
 // ─── Start Server ─────────────────────────────
+
+scheduleJobAlerts();
 
 app.listen(env.PORT, () => {
   console.log(`

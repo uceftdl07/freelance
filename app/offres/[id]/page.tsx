@@ -38,7 +38,7 @@ interface JobOffer {
   createdAt: string;
   recruiter?: {
     email?: string;
-    profileRecruteur?: { company?: string | null; firstName?: string | null; lastName?: string | null; website?: string | null } | null;
+    profileRecruteur?: { company?: string | null; firstName?: string | null; lastName?: string | null; website?: string | null; verificationStatus?: string | null } | null;
   };
 }
 
@@ -281,6 +281,11 @@ export default function OffreDetailsPage() {
               <div className="flex flex-wrap items-center gap-3 text-sm font-medium">
                 <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
                   <HiOutlineBriefcase className="w-4 h-4 text-[#00b8d9]" /> {job.company}
+                  {job.recruiter?.profileRecruteur?.verificationStatus === "VERIFIED" && (
+                    <span title="Entreprise vérifiée" className="ml-1 inline-flex items-center gap-1 text-emerald-400 font-bold text-xs">
+                      ✓ Vérifié
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
                   <HiMapPin className="w-4 h-4 text-[#00b8d9]" /> {job.location}{job.remote ? " · Remote" : ""}

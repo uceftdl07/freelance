@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { apiRequest } from "../../../lib/api";
 import {
   HiCog6Tooth,
   HiBell,
@@ -12,6 +13,8 @@ import {
   HiArrowPath,
   HiPhoto,
   HiXMark,
+  HiCheckBadge,
+  HiOutlineDocumentArrowUp,
 } from "react-icons/hi2";
 
 /* ─── Toggle Switch ─────────────────────────── */
@@ -196,9 +199,42 @@ export default function RecruteurParametresPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  // Verification state
+  const [verifStatus, setVerifStatus] = useState<"NONE" | "PENDING" | "VERIFIED" | "REJECTED">("NONE");
+  const [verifFile, setVerifFile] = useState<File | null>(null);
+  const [verifUploading, setVerifUploading] = useState(false);
+  const verifInputRef = useRef<HTMLInputElement>(null);
+
   // Toast
   const [toast, setToast] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const r = await apiRequest<{ profile: { verificationStatus?: string } | null }>("/profile/me");
+      const s = r.data?.profile?.verificationStatus;
+      if (s === "PENDING" || s === "VERIFIED" || s === "REJECTED") setVerifStatus(s);
+    })();
+  }, []);
+
+  const handleVerifSubmit = async () => {
+    if (!verifFile) return;
+    setVerifUploading(true);
+    const fd = new FormData();
+    fd.append("doc", verifFile);
+    const r = await apiRequest<{ verificationStatus: string }>("/profile/verification", {
+      method: "POST",
+      body: fd,
+    });
+    setVerifUploading(false);
+    if (r.success) {
+      setVerifStatus("PENDING");
+      setVerifFile(null);
+      showToast("Document envoyé. Vérification en cours.");
+    } else {
+      showToast(r.message || "Échec de l'envoi.");
+    }
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -458,6 +494,67 @@ export default function RecruteurParametresPage() {
               showToast("Préférences de notifications enregistrées !")
             }
           />
+        </div>
+      </AccordionSection>
+
+      {/* ─── Vérification entreprise ───────────── */}
+      <AccordionSection
+        icon={HiCheckBadge}
+        title="Vérification entreprise"
+        description="Obtenez le badge 'Vérifié' en envoyant votre Kbis/ICE"
+        isOpen={openSection === "verification"}
+        onToggle={() => toggleSection("verification")}
+        accentColor="#10b981"
+      >
+        <div className="space-y-5 pt-3">
+          {verifStatus === "VERIFIED" ? (
+            <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <HiCheckBadge className="w-6 h-6 text-emerald-600" />
+              <div>
+                <p className="text-sm font-bold text-emerald-700">Entreprise vérifiée</p>
+                <p className="text-xs text-emerald-600">Vos offres affichent le badge officiel.</p>
+              </div>
+            </div>
+          ) : verifStatus === "PENDING" ? (
+            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <HiArrowPath className="w-6 h-6 text-amber-600" />
+              <div>
+                <p className="text-sm font-bold text-amber-700">En cours de vérification</p>
+                <p className="text-xs text-amber-600">Vous serez notifié sous 48h.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600">
+                Envoyez votre <strong>Kbis</strong> (France) ou <strong>ICE</strong> (Maroc) au format PDF, PNG ou JPEG (max 5 Mo).
+                Une fois validé, un badge <strong>✓ Vérifié</strong> apparaîtra sur vos offres.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => verifInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-gray-200 text-gray-700 hover:border-emerald-500 hover:text-emerald-600 transition-all cursor-pointer"
+                >
+                  <HiOutlineDocumentArrowUp className="w-4 h-4" />
+                  {verifFile ? verifFile.name : "Choisir un document"}
+                </button>
+                <input
+                  ref={verifInputRef}
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  className="hidden"
+                  onChange={(e) => setVerifFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <button
+                onClick={handleVerifSubmit}
+                disabled={!verifFile || verifUploading}
+                className="px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-60 flex items-center gap-2"
+                style={{ backgroundColor: "#10b981", boxShadow: "0 4px 14px rgba(16,185,129,0.25)" }}
+              >
+                {verifUploading ? (<><HiArrowPath className="w-4 h-4 animate-spin" />Envoi…</>) : "Envoyer le document"}
+              </button>
+            </>
+          )}
         </div>
       </AccordionSection>
 

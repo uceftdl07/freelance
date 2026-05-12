@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
-import { createPublicProfile, listPublicProfiles } from "../controllers/profiles.controller";
+import { createPublicProfile, listPublicProfiles, getPublicProfile } from "../controllers/profiles.controller";
 
 const router = Router();
 
@@ -17,5 +17,11 @@ router.post("/", authMiddleware, createPublicProfile);
  * @query   skills, availability, location, search, minExperience, maxExperience
  */
 router.get("/", listPublicProfiles);
+
+/**
+ * @route   GET /api/profiles/:id
+ * @desc    Public profile (no auth)
+ */
+router.get("/:id", getPublicProfile);
 
 export default router;

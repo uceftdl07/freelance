@@ -7,6 +7,7 @@ import { HiMagnifyingGlass, HiMapPin } from "react-icons/hi2";
 import Link from "next/link";
 import { useAuth } from "../lib/AuthContext";
 import { apiRequest } from "../lib/api";
+import { notifTarget } from "../lib/notifRoute";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import CreateOfferModal from "./CreateOfferModal";
@@ -14,10 +15,12 @@ import UploadCVModal from "./UploadCVModal";
 
 type NavNotif = {
   id: string;
+  type: string;
   title: string;
   message: string;
   read: boolean;
   createdAt: string;
+  metadata?: string | null;
 };
 
 function navTimeAgo(iso: string): string {
@@ -202,13 +205,21 @@ export default function Navbar() {
                           {notifs.length === 0 ? (
                             <p className="px-4 py-6 text-sm text-gray-400 italic text-center">Aucune notification</p>
                           ) : (
-                            notifs.map((n) => (
-                              <div key={n.id} className={`px-4 py-3 hover:bg-gray-50 transition-colors border-l-4 ${n.read ? "border-transparent" : "border-[#00b8d9]"}`}>
-                                <p className={`text-sm ${n.read ? "text-gray-600" : "text-gray-800 font-medium"}`}>{n.title}</p>
-                                {n.message && <p className="text-[12px] text-gray-500 mt-0.5">{n.message}</p>}
-                                <p className="text-[11px] text-gray-400 mt-1">{navTimeAgo(n.createdAt)}</p>
-                              </div>
-                            ))
+                            notifs.map((n) => {
+                              const href = notifTarget(n.type, n.metadata, user?.role as "CANDIDAT" | "RECRUTEUR" | undefined);
+                              const inner = (
+                                <div className={`px-4 py-3 hover:bg-gray-50 transition-colors border-l-4 ${n.read ? "border-transparent" : "border-[#00b8d9]"} ${href ? "cursor-pointer" : ""}`}>
+                                  <p className={`text-sm ${n.read ? "text-gray-600" : "text-gray-800 font-medium"}`}>{n.title}</p>
+                                  {n.message && <p className="text-[12px] text-gray-500 mt-0.5">{n.message}</p>}
+                                  <p className="text-[11px] text-gray-400 mt-1">{navTimeAgo(n.createdAt)}</p>
+                                </div>
+                              );
+                              return href ? (
+                                <Link key={n.id} href={href} onClick={() => setNotifOpen(false)} className="block">{inner}</Link>
+                              ) : (
+                                <div key={n.id}>{inner}</div>
+                              );
+                            })
                           )}
                         </div>
                         <div className="px-4 pt-2 border-t border-gray-100">

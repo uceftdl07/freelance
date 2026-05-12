@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../lib/AuthContext";
 import { apiRequest } from "../lib/api";
+import { notifTarget } from "../lib/notifRoute";
 import Link from "next/link";
 import WelcomeModal from "./WelcomeModal";
 
@@ -14,6 +15,7 @@ type Notif = {
   message: string;
   read: boolean;
   createdAt: string;
+  metadata?: string | null;
 };
 
 function timeAgo(iso: string): string {
@@ -87,7 +89,7 @@ export default function DashboardLayout({
   const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const fetchNotifs = useCallback(async () => {
     const r = await apiRequest<{ notifications: Notif[]; unreadCount: number }>("/notifications");
@@ -293,20 +295,26 @@ export default function DashboardLayout({
                     {notifs.length === 0 ? (
                       <p className="px-4 py-6 text-sm text-gray-400 italic text-center">Aucune notification</p>
                     ) : (
-                      notifs.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`px-4 py-3 hover:bg-gray-50 transition-colors border-l-4 ${
-                            n.read ? "border-transparent" : "border-[#00b8d9]"
-                          }`}
-                        >
-                          <p className={`text-sm ${n.read ? "text-gray-600" : "text-gray-800 font-medium"}`}>
-                            {n.title}
-                          </p>
-                          {n.message && <p className="text-[12px] text-gray-500 mt-0.5">{n.message}</p>}
-                          <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
-                        </div>
-                      ))
+                      notifs.map((n) => {
+                        const href = notifTarget(n.type, n.metadata, user?.role as "CANDIDAT" | "RECRUTEUR" | undefined);
+                        const Wrapper = ({ children }: { children: React.ReactNode }) =>
+                          href ? (
+                            <Link href={href} onClick={() => setNotifOpen(false)} className="block">{children}</Link>
+                          ) : (
+                            <div>{children}</div>
+                          );
+                        return (
+                          <Wrapper key={n.id}>
+                            <div className={`px-4 py-3 hover:bg-gray-50 transition-colors border-l-4 ${n.read ? "border-transparent" : "border-[#00b8d9]"} ${href ? "cursor-pointer" : ""}`}>
+                              <p className={`text-sm ${n.read ? "text-gray-600" : "text-gray-800 font-medium"}`}>
+                                {n.title}
+                              </p>
+                              {n.message && <p className="text-[12px] text-gray-500 mt-0.5">{n.message}</p>}
+                              <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                            </div>
+                          </Wrapper>
+                        );
+                      })
                     )}
                   </div>
                   <div className="px-4 pt-2 border-t border-gray-100">

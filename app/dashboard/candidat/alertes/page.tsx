@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { apiRequest } from "../../../lib/api";
+import { notifTarget } from "../../../lib/notifRoute";
 import {
   HiOutlineBriefcase,
   HiOutlineEnvelope,
@@ -16,6 +18,7 @@ type Notif = {
   message: string;
   read: boolean;
   createdAt: string;
+  metadata?: string | null;
 };
 
 function timeAgo(iso: string): string {
@@ -92,14 +95,14 @@ export default function CandidatAlertesPage() {
         <div className="space-y-3">
           {notifications.map((notif) => {
             const { Icon, bg, color } = iconFor(notif.type);
-            return (
+            const href = notifTarget(notif.type, notif.metadata, "CANDIDAT");
+            const card = (
               <div
-                key={notif.id}
                 className={`flex items-start gap-4 p-5 rounded-2xl border transition-all group ${
                   notif.read
                     ? "bg-white border-gray-100 hover:shadow-sm"
                     : "bg-blue-50/60 border-blue-100 hover:bg-blue-50 shadow-sm"
-                }`}
+                } ${href ? "cursor-pointer hover:border-[#00b8d9]" : ""}`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${bg}`}>
                   <Icon className={`w-5 h-5 ${color}`} />
@@ -115,6 +118,11 @@ export default function CandidatAlertesPage() {
                   <p className="text-[11px] text-gray-400 mt-2 font-medium">{timeAgo(notif.createdAt)}</p>
                 </div>
               </div>
+            );
+            return href ? (
+              <Link key={notif.id} href={href} className="block">{card}</Link>
+            ) : (
+              <div key={notif.id}>{card}</div>
             );
           })}
         </div>

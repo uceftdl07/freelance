@@ -62,6 +62,46 @@ function parseStoredTags(value: string): string[] {
 }
 
 /**
+ * Background: notify candidates whose skills overlap with the job's tags.
+ * Errors are swallowed so they never break the recruiter request.
+ */
+async function notifyMatchingCandidates(
+  jobId: string,
+  jobTitle: string,
+  company: string,
+  tags: string[]
+): Promise<void> {
+  try {
+    if (tags.length === 0) return;
+    const tagsLower = tags.map((t) => t.toLowerCase());
+    const candidates = await prisma.profileCandidat.findMany({
+      where: { status: "PUBLISHED" },
+      select: { userId: true, skills: true },
+    });
+    for (const c of candidates) {
+      let skills: string[] = [];
+      try {
+        const parsed = JSON.parse(c.skills);
+        if (Array.isArray(parsed)) skills = parsed.map((s) => String(s).toLowerCase());
+      } catch { /* skip */ }
+      if (skills.length === 0) continue;
+      if (!skills.some((s) => tagsLower.includes(s))) continue;
+      await prisma.notification.create({
+        data: {
+          userId: c.userId,
+          type: "JOB_MATCH",
+          title: "🚀 Nouvelle offre qui matche votre profil",
+          message: `${jobTitle} — ${company}`,
+          metadata: JSON.stringify({ jobId }),
+        },
+      });
+    }
+  } catch (err) {
+    console.error("[Jobs] notifyMatchingCandidates error:", err);
+  }
+}
+
+/**
  * POST /api/jobs
  * Create a new job offer (recruiter only).
  */
@@ -125,6 +165,11 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
         },
       },
     });
+
+    // Fire-and-forget: notify matching candidates if the offer is ACTIVE.
+    if (jobOffer.status === "ACTIVE") {
+      void notifyMatchingCandidates(jobOffer.id, jobOffer.title, jobOffer.company, parseStoredTags(jobOffer.tags));
+    }
 
     res.status(201).json({
       success: true,

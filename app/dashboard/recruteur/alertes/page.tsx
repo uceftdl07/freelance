@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { apiRequest } from "../../../lib/api";
+import { notifTarget } from "../../../lib/notifRoute";
 import {
   HiOutlineUserGroup,
   HiOutlineBriefcase,
@@ -16,6 +18,7 @@ type Notif = {
   message: string;
   read: boolean;
   createdAt: string;
+  metadata?: string | null;
 };
 
 function timeAgo(iso: string): string {

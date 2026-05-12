@@ -182,7 +182,7 @@ export async function sendMessageToConversation(req: Request, res: Response): Pr
     });
 
     // Fire and forget notification
-    createMessageNotification(userId, receiverId, content).catch(console.error);
+    createMessageNotification(userId, receiverId, content, conversation?.id ?? conversationId).catch(console.error);
 
     res.status(201).json({ success: true, data: message });
   } catch (error) {
@@ -258,7 +258,7 @@ export async function sendMessageToUser(req: Request, res: Response): Promise<vo
       }
     });
 
-    createMessageNotification(userId, receiverId, content).catch(console.error);
+    createMessageNotification(userId, receiverId, content, conversation.id).catch(console.error);
 
     res.status(201).json({ success: true, data: { conversationId: conversation.id, message } });
   } catch (error) {
@@ -270,12 +270,17 @@ export async function sendMessageToUser(req: Request, res: Response): Promise<vo
   }
 }
 
-async function createMessageNotification(senderId: string, receiverId: string, content: string) {
+async function createMessageNotification(
+  senderId: string,
+  receiverId: string,
+  content: string,
+  conversationId: string
+) {
   const sender = await prisma.user.findUnique({
     where: { id: senderId },
     select: userProfileSelect
   });
-  
+
   const senderInfo = getDisplayName(sender);
   const snippet = content.length > 50 ? content.substring(0, 47) + "..." : content;
 
@@ -285,7 +290,7 @@ async function createMessageNotification(senderId: string, receiverId: string, c
       type: "MESSAGE_RECEIVED",
       title: "Nouveau message",
       message: `${senderInfo.name} vous a envoyé : "${snippet}"`,
-      metadata: JSON.stringify({ senderId }),
+      metadata: JSON.stringify({ senderId, conversationId }),
     },
   });
 }

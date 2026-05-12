@@ -32,12 +32,13 @@ export async function submitVerification(req: Request, res: Response): Promise<v
       return;
     }
     const ext = path.extname(file.originalname) || "";
-    const fileName = `verif-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const fileName = `${userId}/${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const BUCKET = "verifications";
     const { data, error } = await supabaseAdmin.storage
-      .from("resumes")
+      .from(BUCKET)
       .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: false });
     if (error) throw new Error(error.message);
-    const { data: { publicUrl } } = supabaseAdmin.storage.from("resumes").getPublicUrl(data.path);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(data.path);
 
     const updated = await prisma.profileRecruteur.update({
       where: { userId },

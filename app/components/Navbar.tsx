@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { HiMenu, HiX } from "react-icons/hi";
 import { HiMagnifyingGlass, HiMapPin } from "react-icons/hi2";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "../lib/AuthContext";
 import { apiRequest } from "../lib/api";
 import { notifTarget } from "../lib/notifRoute";
@@ -114,12 +115,14 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-              <div
-                className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-xs"
-                style={{ backgroundColor: "#00b8d9" }}
-              >
-                FI
-              </div>
+              <Image
+                src="/logo.png"
+                alt="FreelanceIT"
+                width={40}
+                height={40}
+                className="w-10 h-10 object-contain"
+                priority
+              />
               <span className="text-[#0a1628] font-extrabold text-xl tracking-tight hidden sm:block">
                 Freelance<span style={{ color: "#00b8d9" }}>IT</span>
               </span>

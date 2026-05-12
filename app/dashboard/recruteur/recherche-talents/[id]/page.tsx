@@ -16,7 +16,9 @@ import {
   HiOutlineCheckBadge,
   HiOutlineCurrencyEuro,
   HiHeart,
+  HiTrophy,
 } from "react-icons/hi2";
+import QuizScores from "../../../../components/QuizScores";
 
 type Experience = {
   id: string;
@@ -310,6 +312,14 @@ export default function CandidateProfilePage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Quiz scores */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <HiTrophy className="w-4 h-4 text-[#00b8d9]" /> Tests techniques
+            </h2>
+            <QuizScores candidateId={candidate.userId} />
           </div>
 
           {(candidate.linkedIn || candidate.portfolioUrl || candidate.phone) && (

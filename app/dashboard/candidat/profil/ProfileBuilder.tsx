@@ -7,8 +7,9 @@ import {
   HiDocumentArrowUp, HiUser, HiBriefcase, HiClock, HiAcademicCap,
   HiWrenchScrewdriver, HiCheckCircle, HiChevronLeft, HiChevronRight,
   HiCloudArrowUp, HiSparkles, HiShieldCheck, HiEye, HiRocketLaunch,
-  HiExclamationTriangle,
+  HiExclamationTriangle, HiTrophy,
 } from "react-icons/hi2";
+import QuizScores from "../../../components/QuizScores";
 
 const STEPS = [
   { id: 0, label: "Déposez votre CV", icon: HiDocumentArrowUp },
@@ -525,7 +526,7 @@ export default function ProfileBuilder() {
           {step === 2 && <StepInfoPro form={form} update={update} onNext={goNext} onPrev={goPrev} />}
            {step === 3 && <StepExperience onNext={goNext} onPrev={goPrev} experiences={experiences} onAddExperience={addExperience} onUpdateExperience={updateExperience} onDeleteExperience={deleteExperience} />}
            {step === 4 && <StepFormation onNext={goNext} onPrev={goPrev} educations={educations} onAddEducation={addEducation} onUpdateEducation={updateEducation} onDeleteEducation={deleteEducation} />}
-          {step === 5 && <StepCompetences form={form} update={update} onPublish={handlePublish} publishing={publishing} onPrev={goPrev} />}
+          {step === 5 && <StepCompetences form={form} update={update} onPublish={handlePublish} publishing={publishing} onPrev={goPrev} token={token || undefined} />}
           </>)}
         </div>
       </main>
@@ -840,7 +841,7 @@ function StepFormation({ onNext, onPrev, educations, onAddEducation, onUpdateEdu
 
 /* ─── Step 5: Skills + Publish ───────────── */
 
-function StepCompetences({ form, update, onPublish, publishing, onPrev }: { form: FormData; update: (p: Partial<FormData>) => void; onPublish: () => void; publishing: boolean; onPrev: () => void }) {
+function StepCompetences({ form, update, onPublish, publishing, onPrev, token }: { form: FormData; update: (p: Partial<FormData>) => void; onPublish: () => void; publishing: boolean; onPrev: () => void; token?: string }) {
   const [input, setInput] = useState("");
   const SUGGESTIONS = ["Vue", "Angular", "Python", "Java", "Docker", "Kubernetes", "AWS", "Go", "PostgreSQL", "GraphQL"];
   const remaining = SUGGESTIONS.filter((s) => !form.skills.includes(s));
@@ -882,6 +883,18 @@ function StepCompetences({ form, update, onPublish, publishing, onPrev }: { form
             ))}</div>
           </div>
         )}
+
+        {/* QCM Section */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <HiTrophy className="w-4 h-4 text-[#00b8d9]" />
+            <p className="text-sm font-bold text-gray-700">Tests techniques certifiés</p>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            Passez des QCM techniques pour afficher votre score certifié sur votre profil. Les recruteurs verront vos résultats.
+          </p>
+          <QuizScores token={token} />
+        </div>
       </div>
       <div className="flex items-center justify-between px-7 py-4 border-t border-gray-100 bg-gray-50/50">
         <button onClick={onPrev} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-500 rounded-xl hover:bg-gray-100 transition-all cursor-pointer">

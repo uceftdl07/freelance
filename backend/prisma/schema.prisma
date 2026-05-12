@@ -36,6 +36,7 @@ model User {
   notifications    Notification[]
   savedCandidates  SavedCandidate[]
   applications     Application[]    @relation("CandidateApplications")
+  quizAttempts     QuizAttempt[]    @relation("QuizAttempts")
 
   @@map("users")
 }
@@ -228,6 +229,43 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+// ─── Quiz & QCM ───────────────────────────────
+
+model Quiz {
+  id          String   @id @default(cuid())
+  skill       String   @unique // "Python", "React", "SQL", etc.
+  title       String
+  description String?
+  difficulty  String   @default("INTERMEDIATE") // BEGINNER | INTERMEDIATE | ADVANCED
+  questions   String   // JSON array — correctIndex excluded from API responses
+  timeLimit   Int      @default(15) // minutes
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attempts QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  quizId      String
+  candidateId String
+  score       Int      // 0-100
+  totalQ      Int      // number of questions
+  correctQ    Int      // number correct
+  answers     String   // JSON: { [questionId]: selectedIndex }
+  completedAt DateTime @default(now())
+
+  quiz      Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  candidate User @relation("QuizAttempts", fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([quizId])
+  @@map("quiz_attempts")
 }
 
 // ─── Saved Candidate ──────────────────────────

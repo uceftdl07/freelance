@@ -122,6 +122,8 @@ model ProfileRecruteur {
   phone     String?
   website   String?
   avatarUrl String?
+  description String?
+  sector      String?
   verificationStatus String  @default("NONE") // NONE | PENDING | VERIFIED | REJECTED
   verificationDocUrl String?
   createdAt DateTime @default(now())

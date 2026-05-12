@@ -34,6 +34,7 @@ interface JobOffer {
   salaryMax: number | null;
   tags: string[];
   createdAt: string;
+  recruiter?: { profileRecruteur?: { verificationStatus?: string | null } | null };
 }
 
 const CONTRACT_LABELS: Record<string, string> = {
@@ -232,6 +233,9 @@ function OffresContent() {
                       <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600 mb-3">
                         <span className="flex items-center gap-1 text-gray-900 font-bold">
                           <HiOutlineBuildingOffice2 className="w-4 h-4 text-gray-400" /> {job.company}
+                          {job.recruiter?.profileRecruteur?.verificationStatus === "VERIFIED" && (
+                            <span title="Entreprise vérifiée" className="ml-1 text-emerald-600 font-bold">✓</span>
+                          )}
                         </span>
                         <span className="flex items-center gap-1">
                           <HiMapPin className="w-4 h-4 text-gray-400" /> {job.location}

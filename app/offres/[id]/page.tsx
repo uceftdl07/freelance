@@ -38,7 +38,7 @@ interface JobOffer {
   createdAt: string;
   recruiter?: {
     email?: string;
-    profileRecruteur?: { company?: string | null; firstName?: string | null; lastName?: string | null; website?: string | null; verificationStatus?: string | null } | null;
+    profileRecruteur?: { company?: string | null; firstName?: string | null; lastName?: string | null; website?: string | null; description?: string | null; sector?: string | null; verificationStatus?: string | null } | null;
   };
 }
 
@@ -322,6 +322,46 @@ export default function OffreDetailsPage() {
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {(job.recruiter?.profileRecruteur?.description || job.recruiter?.profileRecruteur?.sector || job.recruiter?.profileRecruteur?.website) && (
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-[#00b8d9] rounded-full"></span>
+                    À propos de l&apos;entreprise
+                    {job.recruiter.profileRecruteur.verificationStatus === "VERIFIED" && (
+                      <span title="Entreprise vérifiée" className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        ✓ Vérifié
+                      </span>
+                    )}
+                  </h2>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0a1628] to-[#00b8d9] flex items-center justify-center text-white font-black text-lg">
+                      {job.company.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-gray-900">{job.company}</p>
+                      {job.recruiter.profileRecruteur.sector && (
+                        <p className="text-xs text-gray-500">{job.recruiter.profileRecruteur.sector}</p>
+                      )}
+                    </div>
+                  </div>
+                  {job.recruiter.profileRecruteur.description && (
+                    <p className="text-gray-600 leading-relaxed text-sm whitespace-pre-wrap mb-4">
+                      {job.recruiter.profileRecruteur.description}
+                    </p>
+                  )}
+                  {job.recruiter.profileRecruteur.website && (
+                    <a
+                      href={job.recruiter.profileRecruteur.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-bold text-[#00b8d9] hover:underline"
+                    >
+                      🌐 {job.recruiter.profileRecruteur.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  )}
                 </div>
               )}
             </div>

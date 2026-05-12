@@ -29,6 +29,7 @@ interface JobOffer {
   tags: string[];
   status: string;
   createdAt: string;
+  recruiter?: { profileRecruteur?: { verificationStatus?: string | null } | null };
 }
 
 const CITIES = [
@@ -295,6 +296,9 @@ function JobCard({
             <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-400">
               <HiBuildingOffice2 className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{job.company}</span>
+              {job.recruiter?.profileRecruteur?.verificationStatus === "VERIFIED" && (
+                <span title="Entreprise vérifiée" className="text-emerald-600 font-bold flex-shrink-0">✓</span>
+              )}
             </div>
           </div>
         </div>

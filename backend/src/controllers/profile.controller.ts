@@ -115,6 +115,8 @@ const updateRecruteurSchema = z.object({
   position: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   website: z.string().url().optional().or(z.literal("")),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  sector: z.string().trim().max(120).optional().or(z.literal("")),
 });
 
 const candidateSettingsSchema = z.object({
@@ -195,6 +197,8 @@ export async function getMyProfile(
                   phone: true,
                   website: true,
                   avatarUrl: true,
+                  description: true,
+                  sector: true,
                   verificationStatus: true,
                   verificationDocUrl: true,
                 },
@@ -339,6 +343,8 @@ export async function getPublicProfile(
             position: true,
             website: true,
             avatarUrl: true,
+            description: true,
+            sector: true,
             verificationStatus: true,
           },
         },

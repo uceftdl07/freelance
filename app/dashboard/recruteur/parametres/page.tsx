@@ -211,11 +211,39 @@ export default function RecruteurParametresPage() {
 
   useEffect(() => {
     (async () => {
-      const r = await apiRequest<{ profile: { verificationStatus?: string } | null }>("/profile/me");
-      const s = r.data?.profile?.verificationStatus;
+      const r = await apiRequest<{
+        profile: {
+          verificationStatus?: string;
+          company?: string;
+          sector?: string;
+          description?: string;
+        } | null;
+      }>("/profile/me");
+      const p = r.data?.profile;
+      const s = p?.verificationStatus;
       if (s === "PENDING" || s === "VERIFIED" || s === "REJECTED") setVerifStatus(s);
+      if (p) {
+        setCompany((c) => ({
+          ...c,
+          name: p.company || "",
+          sector: p.sector || "",
+          description: p.description || "",
+        }));
+      }
     })();
   }, []);
+
+  const handleSaveCompany = async () => {
+    const r = await apiRequest("/profile/me", {
+      method: "PUT",
+      body: JSON.stringify({
+        company: company.name,
+        sector: company.sector,
+        description: company.description,
+      }),
+    });
+    showToast(r.success ? "Informations de l'entreprise enregistrées !" : "Erreur lors de l'enregistrement.");
+  };
 
   const handleVerifSubmit = async () => {
     if (!verifFile) return;
@@ -457,9 +485,7 @@ export default function RecruteurParametresPage() {
             </p>
           </div>
 
-          <SaveButton
-            onClick={() => showToast("Informations de l'entreprise enregistrées !")}
-          />
+          <SaveButton onClick={handleSaveCompany} />
         </div>
       </AccordionSection>
 

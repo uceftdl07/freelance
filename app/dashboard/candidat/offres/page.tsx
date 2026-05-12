@@ -29,7 +29,7 @@ interface JobOffer {
   tags: string[];
   status: string;
   createdAt: string;
-  recruiter?: { profileRecruteur?: { verificationStatus?: string | null } | null };
+  recruiter?: { profileRecruteur?: { id?: string | null; verificationStatus?: string | null } | null };
 }
 
 const CITIES = [
@@ -295,7 +295,17 @@ function JobCard({
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-400">
               <HiBuildingOffice2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{job.company}</span>
+              {job.recruiter?.profileRecruteur?.id ? (
+                <Link
+                  href={`/entreprise/${job.recruiter.profileRecruteur.id}`}
+                  className="truncate hover:text-[#00b8d9] hover:underline transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {job.company}
+                </Link>
+              ) : (
+                <span className="truncate">{job.company}</span>
+              )}
               {job.recruiter?.profileRecruteur?.verificationStatus === "VERIFIED" && (
                 <span title="Entreprise vérifiée" className="text-emerald-600 font-bold flex-shrink-0">✓</span>
               )}

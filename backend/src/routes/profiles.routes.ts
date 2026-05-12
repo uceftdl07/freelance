@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
-import { createPublicProfile, listPublicProfiles, getPublicProfile } from "../controllers/profiles.controller";
+import { createPublicProfile, listPublicProfiles, getPublicProfile, getPublicRecruiterProfile } from "../controllers/profiles.controller";
 
 const router = Router();
 
@@ -19,8 +19,14 @@ router.post("/", authMiddleware, createPublicProfile);
 router.get("/", listPublicProfiles);
 
 /**
+ * @route   GET /api/profiles/recruiter/:id
+ * @desc    Public recruiter company profile (no auth)
+ */
+router.get("/recruiter/:id", getPublicRecruiterProfile);
+
+/**
  * @route   GET /api/profiles/:id
- * @desc    Public profile (no auth)
+ * @desc    Public candidate profile (no auth)
  */
 router.get("/:id", getPublicProfile);
 

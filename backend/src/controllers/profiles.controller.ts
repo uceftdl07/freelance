@@ -124,6 +124,54 @@ export async function getPublicProfile(req: Request, res: Response): Promise<voi
 }
 
 /**
+ * GET /api/recruiter-profiles/:id
+ * Public read-only recruiter company profile by profileRecruteur.id
+ */
+export async function getPublicRecruiterProfile(req: Request, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const profile = await prisma.profileRecruteur.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            jobOffers: {
+              where: { status: "ACTIVE" },
+              select: { id: true, title: true, location: true, remote: true, contractType: true, createdAt: true, tags: true },
+              orderBy: { createdAt: "desc" },
+              take: 10,
+            },
+          },
+        },
+      },
+    });
+    if (!profile) {
+      res.status(404).json({ success: false, message: "Profil non trouvé." });
+      return;
+    }
+    res.json({
+      success: true,
+      data: {
+        id: profile.id,
+        company: profile.company,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        position: profile.position,
+        website: profile.website,
+        avatarUrl: profile.avatarUrl,
+        description: profile.description,
+        sector: profile.sector,
+        verificationStatus: profile.verificationStatus,
+        activeOffers: profile.user.jobOffers,
+      },
+    });
+  } catch (error) {
+    console.error("[PROFILES] GetPublicRecruiter error:", error);
+    res.status(500).json({ success: false, message: "Erreur." });
+  }
+}
+
+/**
  * GET /api/profiles
  * List candidates from SQLite with filtering
  */

@@ -224,7 +224,7 @@ export async function getJobOffers(req: Request, res: Response): Promise<void> {
           select: {
             email: true,
             profileRecruteur: {
-              select: { company: true, firstName: true, lastName: true, verificationStatus: true },
+              select: { id: true, company: true, firstName: true, lastName: true, verificationStatus: true },
             },
           },
         },

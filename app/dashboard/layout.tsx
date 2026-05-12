@@ -329,19 +329,19 @@ export default function DashboardLayout({
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-3 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 pb-3 border-b border-gray-100 text-center">
-                    <p className="text-xs text-gray-500 mb-2">Profil non complet</p>
-                    <Link href="/dashboard/candidat/profil" onClick={() => setDropdownOpen(false)} className="block w-full py-2 text-sm font-bold text-[#0a1628] border border-[#0a1628] rounded-lg hover:bg-gray-50 transition-colors">
-                      Compléter mon profil
+                    <p className="text-xs text-gray-500 mb-2">{isRecruteur ? "Espace recruteur" : "Profil non complet"}</p>
+                    <Link href={isRecruteur ? "/dashboard/recruteur/parametres" : "/dashboard/candidat/profil"} onClick={() => setDropdownOpen(false)} className="block w-full py-2 text-sm font-bold text-[#0a1628] border border-[#0a1628] rounded-lg hover:bg-gray-50 transition-colors">
+                      {isRecruteur ? "Gérer mon entreprise" : "Compléter mon profil"}
                     </Link>
                   </div>
                   <div className="py-2 flex flex-col">
-                    <Link href="/dashboard/candidat/profil" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
-                      <HiUser className="w-4 h-4 text-gray-400" /> Mon profil IT <span className="ml-auto text-[10px] font-bold text-[#00b8d9]">NEW !</span>
+                    <Link href={isRecruteur ? "/dashboard/recruteur/parametres" : "/dashboard/candidat/profil"} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
+                      <HiUser className="w-4 h-4 text-gray-400" /> {isRecruteur ? "Mon entreprise" : "Mon profil IT"}
                     </Link>
-                    <Link href="/dashboard/candidat/candidatures" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
-                      <HiBriefcase className="w-4 h-4 text-gray-400" /> Mes candidatures
+                    <Link href={isRecruteur ? "/dashboard/recruteur/offres" : "/dashboard/candidat/candidatures"} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors">
+                      <HiBriefcase className="w-4 h-4 text-gray-400" /> {isRecruteur ? "Mes offres" : "Mes candidatures"}
                     </Link>
-                    <Link href="/dashboard/candidat/parametres" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors border-t border-gray-50 mt-1 pt-3">
+                    <Link href={isRecruteur ? "/dashboard/recruteur/parametres" : "/dashboard/candidat/parametres"} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#00b8d9] transition-colors border-t border-gray-50 mt-1 pt-3">
                       <HiCog6Tooth className="w-4 h-4 text-gray-400" /> Mon compte
                     </Link>
                     <button

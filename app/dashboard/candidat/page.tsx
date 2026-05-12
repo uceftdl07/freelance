@@ -5,7 +5,8 @@ import {
   HiOutlineEye,
   HiOutlineBriefcase,
   HiOutlineSparkles,
-  HiArrowRight
+  HiArrowRight,
+  HiTrophy,
 } from "react-icons/hi2";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/AuthContext";
@@ -359,6 +360,28 @@ export default function CandidatDashboard() {
               Voir tous les matchs <HiArrowRight className="w-4 h-4" />
             </Link>
           </div>
+
+          {/* Quiz CTA */}
+          <Link href="/dashboard/candidat/quiz" className="block group">
+            <div className="rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all"
+              style={{ background: "linear-gradient(135deg, #0a1628, #111d33)" }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-[#00b8d9]/20 flex items-center justify-center">
+                  <HiTrophy className="w-5 h-5 text-[#00b8d9]" />
+                </div>
+                <div>
+                  <p className="font-bold text-white text-sm">Tests techniques</p>
+                  <p className="text-xs text-gray-400">Score visible par les recruteurs</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">
+                Python, React, SQL, DevOps… Certifiez vos compétences avec des QCM de 10 questions.
+              </p>
+              <div className="flex items-center gap-2 text-xs font-bold text-[#00b8d9] group-hover:gap-3 transition-all">
+                Passer un test <HiArrowRight className="w-4 h-4" />
+              </div>
+            </div>
+          </Link>
         </div>
 
       </div>

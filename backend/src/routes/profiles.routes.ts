@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../middleware/auth";
-import { createPublicProfile, listPublicProfiles, getPublicProfile, getPublicRecruiterProfile } from "../controllers/profiles.controller";
+import { createPublicProfile, listPublicProfiles, getPublicProfile, getPublicRecruiterProfile, linkedInImportProfile } from "../controllers/profiles.controller";
 
 const router = Router();
 
@@ -10,6 +10,13 @@ const router = Router();
  * @access  Private (JWT required)
  */
 router.post("/", authMiddleware, createPublicProfile);
+
+/**
+ * @route   POST /api/profiles/linkedin-import
+ * @desc    Import LinkedIn profile data via OAuth code
+ * @access  Private (JWT required)
+ */
+router.post("/linkedin-import", authMiddleware, linkedInImportProfile);
 
 /**
  * @route   GET /api/profiles

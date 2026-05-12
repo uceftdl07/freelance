@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { env } from "../config/env";
 
 const prisma = new PrismaClient();
 
@@ -245,5 +246,120 @@ export async function listPublicProfiles(req: Request, res: Response): Promise<v
   } catch (error) {
     console.error("[PROFILES] ListPublicProfiles error:", error);
     res.status(500).json({ success: false, message: "Erreur lors de la recherche." });
+  }
+}
+
+// ─── LinkedIn Import ──────────────────────────────────────────────────────────
+
+/**
+ * @route   POST /api/profiles/linkedin-import
+ * @desc    Exchange LinkedIn OAuth code for profile data (name, email, headline, photo)
+ * @access  Private (JWT required)
+ */
+export async function linkedInImportProfile(req: Request, res: Response): Promise<void> {
+  try {
+    const { code, redirectUri } = req.body as { code?: string; redirectUri?: string };
+
+    if (!code) {
+      res.status(400).json({ success: false, message: "Code LinkedIn manquant." });
+      return;
+    }
+
+    if (!env.LINKEDIN_CLIENT_ID || !env.LINKEDIN_CLIENT_SECRET) {
+      res.status(500).json({ success: false, message: "LinkedIn OAuth non configuré." });
+      return;
+    }
+
+    const resolvedRedirectUri =
+      redirectUri ||
+      env.LINKEDIN_REDIRECT_URI ||
+      "http://localhost:3000/linkedin/callback";
+
+    // Exchange code for access token
+    const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: env.LINKEDIN_CLIENT_ID,
+        client_secret: env.LINKEDIN_CLIENT_SECRET,
+        redirect_uri: resolvedRedirectUri,
+      }).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      console.error("[LINKEDIN IMPORT] Token exchange failed:", text);
+      res.status(401).json({ success: false, message: "Échec d'échange du code LinkedIn." });
+      return;
+    }
+
+    const tokenJson = (await tokenRes.json()) as { access_token?: string };
+    const accessToken = tokenJson.access_token;
+
+    if (!accessToken) {
+      res.status(401).json({ success: false, message: "LinkedIn n'a pas retourné de token." });
+      return;
+    }
+
+    // Get OpenID user info (always available with openid+profile+email scope)
+    const userInfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!userInfoRes.ok) {
+      res.status(401).json({ success: false, message: "Impossible de récupérer les infos LinkedIn." });
+      return;
+    }
+
+    const userInfo = (await userInfoRes.json()) as {
+      sub?: string;
+      email?: string;
+      given_name?: string;
+      family_name?: string;
+      name?: string;
+      picture?: string;
+      locale?: { language?: string; country?: string };
+    };
+
+    // Try to get headline & vanityName from LinkedIn REST API (r_liteprofile scope)
+    let headline = "";
+    let vanityName = "";
+
+    try {
+      const meRes = await fetch(
+        "https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,headline,vanityName)",
+        { headers: { Authorization: `Bearer ${accessToken}`, "LinkedIn-Version": "202401" } }
+      );
+      if (meRes.ok) {
+        const me = (await meRes.json()) as {
+          headline?: string;
+          vanityName?: string;
+        };
+        headline = me.headline || "";
+        vanityName = me.vanityName || "";
+      }
+    } catch {
+      // r_liteprofile may not be approved — graceful fallback
+    }
+
+    const profileData = {
+      firstName: userInfo.given_name || (userInfo.name?.split(" ")[0] ?? ""),
+      lastName:
+        userInfo.family_name ||
+        (userInfo.name?.split(" ").slice(1).join(" ") ?? ""),
+      email: userInfo.email || "",
+      avatarUrl: userInfo.picture || "",
+      title: headline,
+      linkedIn: vanityName
+        ? `https://www.linkedin.com/in/${vanityName}`
+        : "",
+    };
+
+    res.json({ success: true, data: profileData });
+  } catch (error) {
+    console.error("[LINKEDIN IMPORT] Error:", error);
+    res.status(500).json({ success: false, message: "Erreur lors de l'import LinkedIn." });
   }
 }

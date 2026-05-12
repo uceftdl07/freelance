@@ -155,6 +155,30 @@ export default function ProfileBuilder() {
     setStep(parsedStep);
   }, [searchParams]);
 
+  // Détecter un import LinkedIn au retour du callback
+  useEffect(() => {
+    if (searchParams.get("from") !== "linkedin") return;
+    const raw = sessionStorage.getItem("linkedin_import_data");
+    if (!raw) return;
+    sessionStorage.removeItem("linkedin_import_data");
+    try {
+      const data = JSON.parse(raw) as {
+        firstName?: string; lastName?: string; email?: string;
+        avatarUrl?: string; title?: string; linkedIn?: string;
+      };
+      setForm((prev) => ({
+        ...prev,
+        firstName: data.firstName || prev.firstName,
+        lastName: data.lastName || prev.lastName,
+        email: data.email || prev.email,
+        title: data.title || prev.title,
+        linkedIn: data.linkedIn || prev.linkedIn,
+      }));
+      setStep(1); // go to info perso step
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Charger le brouillon sauvegardé depuis la base de données au démarrage
   useEffect(() => {
     const loadProfileData = async () => {
@@ -685,11 +709,51 @@ function StepCV({ onParsed, onSkip }: { onParsed: (d: Partial<FormData>) => void
 /* ─── Step 1: Personal Info (pre-filled) ─── */
 
 function StepInfoPerso({ form, update, onNext, onPrev }: { form: FormData; update: (p: Partial<FormData>) => void; onNext: () => void; onPrev: () => void }) {
+  const handleLinkedInImport = () => {
+    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID;
+    const redirectUri =
+      process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI ||
+      `${window.location.origin}/linkedin/callback`;
+
+    if (!clientId) return;
+
+    const state = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem("linkedin_oauth_state", state);
+    sessionStorage.setItem("linkedin_oauth_role", "CANDIDAT");
+    sessionStorage.setItem("linkedin_oauth_mode", "import");
+    sessionStorage.setItem("linkedin_oauth_redirect_uri", redirectUri);
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      state,
+      scope: "openid profile email",
+    });
+
+    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+  };
+
   return (
     <div>
       <div className="px-7 pt-7 pb-2">
         <h2 className="text-lg font-bold text-gray-800">Informations personnelles</h2>
         <p className="text-sm text-gray-500 mt-1">Ces informations sont visibles uniquement par les recruteurs intéressés.</p>
+        {/* LinkedIn import button */}
+        <button
+          onClick={handleLinkedInImport}
+          type="button"
+          className="mt-4 w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all hover:-translate-y-0.5 cursor-pointer"
+          style={{ borderColor: "#0A66C2", color: "#0A66C2", backgroundColor: "rgba(10,102,194,0.04)" }}
+        >
+          <span
+            className="w-6 h-6 rounded flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+            style={{ backgroundColor: "#0A66C2" }}
+          >
+            in
+          </span>
+          Pré-remplir depuis LinkedIn
+        </button>
       </div>
       <div className="px-7 py-5 space-y-4">
         <div className="grid grid-cols-2 gap-4">

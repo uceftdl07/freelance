@@ -12,6 +12,7 @@ import profilesRoutes from "./routes/profiles.routes";
 import jobsRoutes from "./routes/jobs.routes";
 import applicationsRoutes from "./routes/applications.routes";
 import messagingRoutes from "./routes/messaging.routes";
+import contactRoutes from "./routes/contact.routes";
 import { scheduleJobAlerts, sendJobAlerts } from "./services/email-alerts";
 // ─── Create Express App ───────────────────────
 
@@ -127,6 +128,9 @@ app.use("/api/applications", applicationsRoutes);
 
 // Messaging routes
 app.use("/api/messaging", messagingRoutes);
+
+// Public contact form
+app.use("/api/contact", contactRoutes);
 
 // Manual trigger for job-alerts cron (admin/debug — protect with header secret).
 app.post("/api/admin/run-job-alerts", async (req: express.Request, res: express.Response) => {

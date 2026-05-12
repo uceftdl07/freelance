@@ -197,7 +197,7 @@ export async function createJobOffer(req: Request, res: Response): Promise<void>
  */
 export async function getJobOffers(req: Request, res: Response): Promise<void> {
   try {
-    const { search, location, contractType, remote, tags } = req.query;
+    const { search, location, contractType, remote, tags, limit } = req.query;
 
     // Build where clause
     const where: Record<string, unknown> = {
@@ -259,10 +259,13 @@ export async function getJobOffers(req: Request, res: Response): Promise<void> {
       );
     }
 
+    const limitNum = limit ? Math.min(parseInt(String(limit), 10) || 50, 100) : undefined;
+    const paginated = limitNum ? results.slice(0, limitNum) : results;
+
     res.json({
       success: true,
       data: {
-        jobs: results,
+        jobs: paginated,
         total: results.length,
       },
     });

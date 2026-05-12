@@ -223,9 +223,6 @@ export default function RegisterModal({
           backgroundColor: "rgba(10,22,40,0.7)",
           backdropFilter: "blur(8px)",
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) handleClose();
-        }}
       >
         <div
           className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-center p-8"
@@ -310,9 +307,6 @@ export default function RegisterModal({
       style={{
         backgroundColor: "rgba(10,22,40,0.7)",
         backdropFilter: "blur(8px)",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div

@@ -183,9 +183,6 @@ export default function LoginModal({
         backgroundColor: "rgba(10,22,40,0.7)",
         backdropFilter: "blur(8px)",
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"

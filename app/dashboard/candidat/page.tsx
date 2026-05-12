@@ -101,6 +101,8 @@ export default function CandidatDashboard() {
   const [matchTotal, setMatchTotal] = useState(0);
   const [appsCount, setAppsCount] = useState(0);
   const [profileViews, setProfileViews] = useState(0);
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
 
   useEffect(() => {
     if (!token) return;
@@ -157,6 +159,9 @@ export default function CandidatDashboard() {
         const p = meJson?.data?.profile;
         const email = meJson?.data?.email;
         if (!p) return;
+
+        if (p.firstName) setFirstName(p.firstName);
+        if (p.lastName) setLastName(p.lastName);
 
         const skills = Array.isArray(p.skills)
           ? p.skills
@@ -227,7 +232,7 @@ export default function CandidatDashboard() {
         
         <div className="relative z-10">
           <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">
-            Bonjour{user?.email ? ` ${user.email.split("@")[0]}` : ""} 👋
+            Bonjour {firstName ? `${firstName}${lastName ? ` ${lastName}` : ""}` : user?.email ? user.email.split("@")[0] : ""} 👋
           </h1>
           <p className="text-indigo-100 text-sm max-w-xl leading-relaxed">
             Bienvenue sur votre espace candidat. C'est ici que vous gérez vos informations, vos candidatures et que vous découvrez les missions qui matchent avec votre profil.

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { apiRequest } from "../../../lib/api";
+import { useTheme } from "../../../lib/ThemeContext";
 import {
   HiCog6Tooth,
   HiBell,
@@ -15,6 +16,7 @@ import {
   HiXMark,
   HiCheckBadge,
   HiOutlineDocumentArrowUp,
+  HiPaintBrush,
 } from "react-icons/hi2";
 
 /* ─── Toggle Switch ─────────────────────────── */
@@ -172,6 +174,7 @@ function SaveButton({
 /* ─── Main Page ─────────────────────────────── */
 
 export default function RecruteurParametresPage() {
+  const { isDark, setDark } = useTheme();
   const [openSection, setOpenSection] = useState<string | null>(null);
 
   // Company state
@@ -596,7 +599,26 @@ export default function RecruteurParametresPage() {
         </div>
       </AccordionSection>
 
-      {/* ─── 3. Sécurité ───────────────────────── */}
+      {/* ─── 3. Apparence ──────────────────────── */}
+      <AccordionSection
+        icon={HiPaintBrush}
+        title="Apparence"
+        description="Thème et préférences d'affichage"
+        isOpen={openSection === "appearance"}
+        onToggle={() => toggleSection("appearance")}
+        accentColor="#00b8d9"
+      >
+        <div className="space-y-5 pt-3">
+          <Toggle
+            label="Mode sombre"
+            description="Activez le thème sombre pour réduire la fatigue visuelle"
+            checked={isDark}
+            onChange={(v) => setDark(v)}
+          />
+        </div>
+      </AccordionSection>
+
+      {/* ─── 4. Sécurité ───────────────────────── */}
       <AccordionSection
         icon={HiShieldCheck}
         title="Sécurité"

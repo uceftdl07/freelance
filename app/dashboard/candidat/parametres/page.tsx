@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../../lib/api";
+import { useTheme } from "../../../lib/ThemeContext";
 import {
   HiCog6Tooth,
   HiBell,
@@ -192,6 +193,8 @@ function AccordionSection({
 /* ─── Main Page ─────────────────────────────── */
 
 export default function ParametresPage() {
+  const { isDark, setDark } = useTheme();
+
   // Accordion state
   const [openSection, setOpenSection] = useState<string | null>(null);
 
@@ -266,6 +269,14 @@ export default function ParametresPage() {
 
     void loadSettings();
   }, []);
+
+  // Sync local darkMode state with ThemeContext
+  useEffect(() => {
+    setSettings((s) => ({
+      ...s,
+      appearance: { ...s.appearance, darkMode: isDark },
+    }));
+  }, [isDark]);
 
   const persistSettings = (next: Settings) => {
     try {
@@ -676,25 +687,15 @@ export default function ParametresPage() {
           {/* Dark mode toggle */}
           <Toggle
             label="Mode sombre"
-            checked={settings.appearance.darkMode}
-            onChange={(v) =>
+            checked={isDark}
+            onChange={(v) => {
+              setDark(v);
               setSettings((s) => ({
                 ...s,
                 appearance: { ...s.appearance, darkMode: v },
-              }))
-            }
+              }));
+            }}
           />
-          {settings.appearance.darkMode && (
-            <p
-              className="text-xs px-3 py-2 rounded-lg"
-              style={{
-                backgroundColor: "rgba(0,184,217,0.06)",
-                color: "#0e7490",
-              }}
-            >
-              💡 Le mode sombre sera disponible dans une prochaine mise à jour.
-            </p>
-          )}
 
           <div className="pt-2 border-t border-gray-100">
             <button

@@ -21,13 +21,18 @@ const adminLinks = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (user !== null && user.role !== "ADMIN") router.replace("/");
-  }, [user, router]);
+    if (loading) return;
+    if (!user || user.role !== "ADMIN") router.replace("/admin/login");
+  }, [user, loading, router]);
+
+  if (loading || !user || user.role !== "ADMIN") {
+    return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a1628" }}><div className="w-6 h-6 border-2 border-[#00b8d9] border-t-transparent rounded-full animate-spin" /></div>;
+  }
 
   const isActive = (href: string) =>
     href === "/admin" ? pathname === href : pathname.startsWith(href);

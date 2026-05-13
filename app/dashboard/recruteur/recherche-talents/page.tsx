@@ -26,7 +26,7 @@ type Talent = {
   tjm: number | null;
 };
 
-const QUIZ_SKILLS = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science"];
+const QUIZ_SKILLS = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science", "Spark", "Databricks", "AWS", "Azure", "TypeScript", "Next.js", "MongoDB"];
 
 function availabilityColor(availability: string) {
   if (availability === "DISPONIBLE") return "bg-emerald-100 text-emerald-700";

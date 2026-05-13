@@ -52,7 +52,7 @@ interface ApiJobOffer {
   requiredQuizzes: RequiredQuiz[];
 }
 
-const AVAILABLE_QUIZZES = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science"];
+const AVAILABLE_QUIZZES = ["Python", "JavaScript", "React", "SQL", "DevOps", "Data Science", "Spark", "Databricks", "AWS", "Azure", "TypeScript", "Next.js", "MongoDB"];
 
 const INITIAL_OFFERS: Offer[] = [
   {

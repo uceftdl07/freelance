@@ -15,9 +15,17 @@ const optimizeProfileSchema = z.object({
   lastName: z.string().min(1),
   title: z.string().optional(),
   bio: z.string().optional(),
-  skills: z.array(z.string()).optional(),
-  yearsOfExperience: z.number().optional(),
-  tjm: z.number().optional(),
+  skills: z.preprocess(
+    (val) => {
+      if (typeof val === "string") {
+        try { return JSON.parse(val); } catch { return []; }
+      }
+      return val;
+    },
+    z.array(z.string())
+  ).optional(),
+  yearsOfExperience: z.coerce.number().nullish(),
+  tjm: z.coerce.number().nullish(),
   location: z.string().optional(),
   experiences: z.array(z.object({
     title: z.string(),

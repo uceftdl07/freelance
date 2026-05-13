@@ -86,7 +86,17 @@ function ProfileOptimizer() {
   useEffect(() => {
     (async () => {
       const r = await apiRequest<{ profile: ProfileData }>("/profile/me");
-      if (r.success && r.data) setProfile(r.data.profile || (r.data as unknown as ProfileData));
+      if (r.success && r.data) {
+        const p = r.data.profile || (r.data as unknown as ProfileData);
+        if (p) {
+          const skills = Array.isArray(p.skills)
+            ? p.skills
+            : typeof p.skills === "string"
+            ? (() => { try { return JSON.parse(p.skills as string); } catch { return []; } })()
+            : [];
+          setProfile({ ...p, skills });
+        }
+      }
     })();
   }, []);
 

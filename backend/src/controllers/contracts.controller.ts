@@ -123,6 +123,19 @@ export async function signContract(req: Request, res: Response): Promise<void> {
     select: contractSelect,
   });
 
+  // Auto-create mission when contract is signed
+  await prisma.mission.create({
+    data: {
+      contractId: contract.id,
+      title: contract.title,
+      recruiterId: contract.recruiterId,
+      candidateId: contract.candidateId,
+      tjm: contract.tjm ?? null,
+      startDate: contract.startDate ?? null,
+      status: "ACTIVE",
+    },
+  }).catch(() => {});
+
   await notify(contract.recruiterId, "CONTRACT_SIGNED", "Contrat signé", `Le candidat a signé le contrat "${contract.title}".`, JSON.stringify({ contractId: contract.id }));
 
   res.json({ success: true, data: { contract: updated } });

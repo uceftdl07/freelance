@@ -20,6 +20,7 @@ import aiRoutes from "./routes/ai.routes";
 import adminRoutes from "./routes/admin.routes";
 import communityRoutes from "./routes/community.routes";
 import contractsRoutes from "./routes/contracts.routes";
+import missionsRoutes from "./routes/missions.routes";
 import { scheduleJobAlerts, sendJobAlerts } from "./services/email-alerts";
 // ─── Create Express App ───────────────────────
 
@@ -159,6 +160,9 @@ app.use("/api/community", communityRoutes);
 
 // Contracts — signature électronique
 app.use("/api/contracts", contractsRoutes);
+
+// Missions & Timesheets
+app.use("/api/missions", missionsRoutes);
 
 // Manual trigger for job-alerts cron (admin/debug — protect with header secret).
 app.post("/api/admin/run-job-alerts", async (req: express.Request, res: express.Response) => {

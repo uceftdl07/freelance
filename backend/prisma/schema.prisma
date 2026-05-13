@@ -42,6 +42,8 @@ model User {
   communityPosts   CommunityPost[]
   contractsAsRecruiter Contract[]   @relation("ContractsAsRecruiter")
   contractsAsCandidate Contract[]   @relation("ContractsAsCandidate")
+  missionsAsRecruiter  Mission[]    @relation("MissionsAsRecruiter")
+  missionsAsCandidate  Mission[]    @relation("MissionsAsCandidate")
 
   @@map("users")
 }
@@ -374,8 +376,54 @@ model Contract {
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   recruiter   User        @relation("ContractsAsRecruiter", fields: [recruiterId], references: [id])
   candidate   User        @relation("ContractsAsCandidate", fields: [candidateId], references: [id])
+  mission     Mission?
 
   @@index([recruiterId])
   @@index([candidateId])
   @@map("contracts")
+}
+
+// ─── Missions & Timesheets ────────────────────
+
+model Mission {
+  id          String    @id @default(cuid())
+  contractId  String    @unique
+  title       String
+  recruiterId String
+  candidateId String
+  tjm         Int?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String    @default("ACTIVE") // ACTIVE | PAUSED | COMPLETED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  contract    Contract    @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  recruiter   User        @relation("MissionsAsRecruiter", fields: [recruiterId], references: [id])
+  candidate   User        @relation("MissionsAsCandidate", fields: [candidateId], references: [id])
+  timesheets  Timesheet[]
+
+  @@index([recruiterId])
+  @@index([candidateId])
+  @@map("missions")
+}
+
+model Timesheet {
+  id             String    @id @default(cuid())
+  missionId      String
+  weekStart      DateTime
+  daysWorked     Float     @default(0)
+  description    String?   @db.Text
+  status         String    @default("DRAFT") // DRAFT | SUBMITTED | VALIDATED | REJECTED
+  rejectionNote  String?
+  submittedAt    DateTime?
+  validatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, weekStart])
+  @@index([missionId])
+  @@map("timesheets")
 }

@@ -31,7 +31,7 @@ const optimizeMissionSchema = z.object({
   description: z.string().optional().default(""),
   location: z.string().optional(),
   remote: z.boolean().optional(),
-  tjm: z.number().optional(),
+  tjm: z.coerce.number().optional(),
   tags: z.array(z.string()).optional(),
   contractType: z.string().optional(),
 });

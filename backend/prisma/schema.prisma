@@ -40,6 +40,8 @@ model User {
   reviewsGiven     Review[]         @relation("ReviewsGiven")
   reviewsReceived  Review[]         @relation("ReviewsReceived")
   communityPosts   CommunityPost[]
+  contractsAsRecruiter Contract[]   @relation("ContractsAsRecruiter")
+  contractsAsCandidate Contract[]   @relation("ContractsAsCandidate")
 
   @@map("users")
 }
@@ -180,6 +182,7 @@ model Application {
   job       JobOffer @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate User     @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
   reviews   Review[]
+  contract  Contract?
 
   @@unique([jobId, candidateId])
   @@index([candidateId])
@@ -348,4 +351,31 @@ model Review {
   @@unique([fromUserId, applicationId])
   @@index([toUserId])
   @@map("reviews")
+}
+
+// ─── Contracts ────────────────────────────────
+
+model Contract {
+  id                String    @id @default(cuid())
+  applicationId     String    @unique
+  recruiterId       String
+  candidateId       String
+  title             String
+  tjm               Int?
+  startDate         DateTime?
+  duration          String?
+  clauses           String?   @db.Text
+  status            String    @default("PENDING") // PENDING | SIGNED | REFUSED | CANCELLED
+  recruiterSignedAt DateTime  @default(now())
+  candidateSignedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  recruiter   User        @relation("ContractsAsRecruiter", fields: [recruiterId], references: [id])
+  candidate   User        @relation("ContractsAsCandidate", fields: [candidateId], references: [id])
+
+  @@index([recruiterId])
+  @@index([candidateId])
+  @@map("contracts")
 }

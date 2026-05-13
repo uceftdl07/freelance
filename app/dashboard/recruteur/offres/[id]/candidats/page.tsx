@@ -11,6 +11,8 @@ import {
   HiOutlineXCircle,
   HiOutlineChatBubbleLeftRight,
   HiStar,
+  HiDocumentText,
+  HiXMark,
 } from "react-icons/hi2";
 import ContactModal from "../../../ContactModal";
 import { LeaveReviewModal } from "../../../../../components/ReputationSection";
@@ -72,6 +74,32 @@ export default function OffreCandidatsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [contact, setContact] = useState<{ id: string; name: string } | null>(null);
   const [reviewing, setReviewing] = useState<{ userId: string; applicationId: string; name: string } | null>(null);
+  const [contracting, setContracting] = useState<{ applicationId: string; name: string; defaultTitle: string } | null>(null);
+  const [contractForm, setContractForm] = useState({ title: "", tjm: "", startDate: "", duration: "", clauses: "" });
+  const [contractSaving, setContractSaving] = useState(false);
+
+  const handleSendContract = async () => {
+    if (!contracting || !contractForm.title.trim()) return;
+    setContractSaving(true);
+    const r = await apiRequest("/contracts", {
+      method: "POST",
+      body: JSON.stringify({
+        applicationId: contracting.applicationId,
+        title: contractForm.title,
+        tjm: contractForm.tjm ? Number(contractForm.tjm) : null,
+        startDate: contractForm.startDate || null,
+        duration: contractForm.duration || null,
+        clauses: contractForm.clauses || null,
+      }),
+    });
+    setContractSaving(false);
+    if (r.success) {
+      showToast("Contrat envoyé au candidat !");
+      setContracting(null);
+    } else {
+      showToast(r.message || "Erreur lors de l'envoi du contrat.");
+    }
+  };
 
   const showToast = (m: string) => {
     setToast(m);
@@ -206,13 +234,25 @@ export default function OffreCandidatsPage() {
                   <HiOutlineXCircle className="w-5 h-5" />
                 </button>
                 {a.status === "ACCEPTED" && (
-                  <button
-                    onClick={() => setReviewing({ userId: a.candidate.id, applicationId: a.id, name })}
-                    className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                    title="Laisser un avis"
-                  >
-                    <HiStar className="w-5 h-5" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setContractForm({ title: "", tjm: "", startDate: "", duration: "", clauses: "" });
+                        setContracting({ applicationId: a.id, name, defaultTitle: "" });
+                      }}
+                      className="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                      title="Proposer un contrat"
+                    >
+                      <HiDocumentText className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setReviewing({ userId: a.candidate.id, applicationId: a.id, name })}
+                      className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                      title="Laisser un avis"
+                    >
+                      <HiStar className="w-5 h-5" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -237,6 +277,92 @@ export default function OffreCandidatsPage() {
           onClose={() => setReviewing(null)}
           onSuccess={() => showToast("Avis envoyé !")}
         />
+      )}
+
+      {/* Contract modal */}
+      {contracting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setContracting(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Proposer un contrat</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Pour {contracting.name}</p>
+              </div>
+              <button onClick={() => setContracting(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <HiXMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Intitulé de la mission <span className="text-red-400">*</span></label>
+              <input
+                type="text"
+                value={contractForm.title}
+                onChange={(e) => setContractForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Ex: Développeur React Senior — 6 mois"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">TJM (MAD/jour)</label>
+                <input
+                  type="number"
+                  value={contractForm.tjm}
+                  onChange={(e) => setContractForm((f) => ({ ...f, tjm: e.target.value }))}
+                  placeholder="1200"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">Durée</label>
+                <input
+                  type="text"
+                  value={contractForm.duration}
+                  onChange={(e) => setContractForm((f) => ({ ...f, duration: e.target.value }))}
+                  placeholder="3 mois, 6 mois…"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Date de début</label>
+              <input
+                type="date"
+                value={contractForm.startDate}
+                onChange={(e) => setContractForm((f) => ({ ...f, startDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Clauses spécifiques (optionnel)</label>
+              <textarea
+                value={contractForm.clauses}
+                onChange={(e) => setContractForm((f) => ({ ...f, clauses: e.target.value }))}
+                rows={3}
+                placeholder="Conditions particulières, NDA, télétravail…"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 resize-none"
+              />
+            </div>
+
+            <div className="bg-indigo-50 rounded-xl p-3 text-xs text-indigo-700">
+              En envoyant ce contrat, vous le signez électroniquement. Le candidat devra le signer pour le finaliser.
+            </div>
+
+            <button
+              onClick={handleSendContract}
+              disabled={contractSaving || !contractForm.title.trim()}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 cursor-pointer"
+              style={{ backgroundColor: "#6366f1" }}
+            >
+              {contractSaving ? "Envoi…" : "Signer & envoyer le contrat"}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

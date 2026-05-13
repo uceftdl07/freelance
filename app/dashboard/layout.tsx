@@ -41,6 +41,7 @@ import {
   HiChatBubbleLeftRight,
   HiHeart,
   HiSparkles,
+  HiDocumentText,
 } from "react-icons/hi2";
 
 const candidatLinks = [
@@ -50,6 +51,7 @@ const candidatLinks = [
   { label: "Matchs", href: "/dashboard/candidat/matchs", icon: HiMagnifyingGlass },
   { label: "Offres de mission", href: "/dashboard/candidat/offres", icon: HiBriefcase },
   { label: "Mes Candidatures", href: "/dashboard/candidat/candidatures", icon: HiBriefcase },
+  { label: "Mes Contrats", href: "/dashboard/candidat/contrats", icon: HiDocumentText },
   { label: "Mes Favoris", href: "/dashboard/candidat/favoris", icon: HiHeart },
   { label: "Messagerie", href: "/dashboard/candidat/messagerie", icon: HiChatBubbleLeftRight },
   { label: "Paramètres", href: "/dashboard/candidat/parametres", icon: HiCog6Tooth },
@@ -58,6 +60,7 @@ const candidatLinks = [
 const recruteurLinks = [
   { label: "Rechercher", href: "/dashboard/recruteur", icon: HiMagnifyingGlass },
   { label: "Mes Offres", href: "/dashboard/recruteur/offres", icon: HiBriefcase },
+  { label: "Mes Contrats", href: "/dashboard/recruteur/contrats", icon: HiDocumentText },
   { label: "Candidats Sauvegardés", href: "/dashboard/recruteur/sauvegardes", icon: HiUser },
   { label: "Messagerie", href: "/dashboard/recruteur/messagerie", icon: HiChatBubbleLeftRight },
   { label: "Paramètres", href: "/dashboard/recruteur/parametres", icon: HiCog6Tooth },

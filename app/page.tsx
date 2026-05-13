@@ -6,6 +6,7 @@ import LatestOffers from "./components/LatestOffers";
 import TopRecruiters from "./components/TopRecruiters";
 import DealsSection from "./components/DealsSection";
 import SkillsSection from "./components/SkillsSection";
+import TjmStatsSection from "./components/TjmStatsSection";
 import Footer from "./components/Footer";
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
         <ForumBlogSection />
         <StatsBar />
         <LatestOffers />
+        <TjmStatsSection />
         <TopRecruiters />
         <DealsSection />
         <SkillsSection />

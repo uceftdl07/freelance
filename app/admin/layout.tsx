@@ -26,9 +26,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   useEffect(() => {
+    if (pathname === "/admin/login") return;
     if (loading) return;
     if (!user || user.role !== "ADMIN") router.replace("/admin/login");
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
+
+  if (pathname === "/admin/login") return <>{children}</>;
 
   if (loading || !user || user.role !== "ADMIN") {
     return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a1628" }}><div className="w-6 h-6 border-2 border-[#00b8d9] border-t-transparent rounded-full animate-spin" /></div>;

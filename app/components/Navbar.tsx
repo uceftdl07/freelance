@@ -100,7 +100,9 @@ export default function Navbar() {
   };
 
   const dashboardUrl =
-    user?.role === "RECRUTEUR"
+    user?.role === "ADMIN"
+      ? "/dashboard/admin"
+      : user?.role === "RECRUTEUR"
       ? "/dashboard/recruteur"
       : "/dashboard/candidat";
 

@@ -20,7 +20,7 @@ model User {
   id                String   @id @default(cuid())
   email             String   @unique
   password          String
-  role              String   @default("CANDIDAT") // CANDIDAT | RECRUTEUR
+  role              String   @default("CANDIDAT") // CANDIDAT | RECRUTEUR | ADMIN
   isVerified        Boolean  @default(false)
   verificationToken String?
   googleId          String?  @unique
@@ -37,6 +37,8 @@ model User {
   savedCandidates  SavedCandidate[]
   applications     Application[]    @relation("CandidateApplications")
   quizAttempts     QuizAttempt[]    @relation("QuizAttempts")
+  reviewsGiven     Review[]         @relation("ReviewsGiven")
+  reviewsReceived  Review[]         @relation("ReviewsReceived")
 
   @@map("users")
 }
@@ -176,6 +178,7 @@ model Application {
 
   job       JobOffer @relation(fields: [jobId], references: [id], onDelete: Cascade)
   candidate User     @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
+  reviews   Review[]
 
   @@unique([jobId, candidateId])
   @@index([candidateId])
@@ -281,4 +284,26 @@ model SavedCandidate {
 
   @@unique([recruiterId, candidateId])
   @@map("saved_candidates")
+}
+
+// ─── Review / Réputation ──────────────────────
+
+model Review {
+  id            String   @id @default(cuid())
+  fromUserId    String
+  toUserId      String
+  applicationId String?
+  rating        Int      // 1-5
+  comment       String?
+  type          String   // RECRUTEUR_TO_CANDIDAT | CANDIDAT_TO_RECRUTEUR
+  badges        String   @default("[]") // JSON: ["MISSION_REUSSIE","LIVRAISON_RAPIDE","LONG_TERME","EXPERT_TECHNIQUE","BON_COMMUNICANT"]
+  createdAt     DateTime @default(now())
+
+  from        User         @relation("ReviewsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to          User         @relation("ReviewsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@unique([fromUserId, applicationId])
+  @@index([toUserId])
+  @@map("reviews")
 }

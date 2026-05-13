@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { apiRequest } from "../../../lib/api";
+import { LeaveReviewModal } from "../../../components/ReputationSection";
 import {
   HiBriefcase,
   HiClock,
@@ -16,6 +17,7 @@ import {
   HiExclamationTriangle,
   HiInformationCircle,
   HiChevronRight,
+  HiStar,
 } from "react-icons/hi2";
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ interface Application {
   status: ApplicationStatus;
   tags: string[];
   coverLetter: string;
+  recruiterId?: string;
 }
 
 // Backend application shape returned by GET /api/applications/mine
@@ -42,6 +45,7 @@ interface ApiApplication {
     title: string;
     company: string;
     tags: string[] | string;
+    recruiterId?: string;
   };
 }
 
@@ -113,11 +117,13 @@ function DetailModal({
   onClose,
   onWithdraw,
   onEdit,
+  onReview,
 }: {
   app: Application;
   onClose: () => void;
   onWithdraw: (id: string) => void;
   onEdit: (id: string) => void;
+  onReview: (id: string) => void;
 }) {
   const st = statusMap[app.status];
   const StatusIcon = st.icon;
@@ -279,6 +285,18 @@ function DetailModal({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ── Laisser un avis (accepted only) ── */}
+          {app.status === "accepted" && (
+            <button
+              onClick={() => onReview(app.id)}
+              className="w-full py-3 text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5"
+              style={{ backgroundColor: "#f59e0b", color: "#fff", boxShadow: "0 6px 16px rgba(245,158,11,0.3)" }}
+            >
+              <HiStar className="w-4 h-4" />
+              Laisser un avis au recruteur
+            </button>
           )}
 
           {/* ── Actions ── */}
@@ -522,6 +540,7 @@ export default function CandidaturesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
+  const [reviewingApp, setReviewingApp] = useState<Application | null>(null);
   const [toastMsg, setToastMsg] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
 
@@ -540,6 +559,7 @@ export default function CandidaturesPage() {
         status: mapStatus(a.status),
         tags: normalizeTags(a.job?.tags),
         coverLetter: a.coverLetter || "",
+        recruiterId: a.job?.recruiterId,
       }));
       setCandidatures(mapped);
     }
@@ -592,8 +612,16 @@ export default function CandidaturesPage() {
     const app = candidatures.find((c) => c.id === id);
     if (app) {
       setSelectedApp(null);
-      // Small delay so close animation plays before open
       setTimeout(() => setEditingApp(app), 150);
+    }
+  };
+
+  // ── Review handler ──
+  const handleReview = (id: string) => {
+    const app = candidatures.find((c) => c.id === id);
+    if (app) {
+      setSelectedApp(null);
+      setTimeout(() => setReviewingApp(app), 150);
     }
   };
 
@@ -721,6 +749,18 @@ export default function CandidaturesPage() {
           onClose={() => setSelectedApp(null)}
           onWithdraw={handleWithdraw}
           onEdit={handleEdit}
+          onReview={handleReview}
+        />
+      )}
+
+      {/* ── Review Modal ── */}
+      {reviewingApp && reviewingApp.recruiterId && (
+        <LeaveReviewModal
+          toUserId={reviewingApp.recruiterId}
+          applicationId={reviewingApp.id}
+          targetName={reviewingApp.company}
+          onClose={() => setReviewingApp(null)}
+          onSuccess={() => showToast("Avis envoyé avec succès !")}
         />
       )}
 

@@ -10,8 +10,10 @@ import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
   HiOutlineChatBubbleLeftRight,
+  HiStar,
 } from "react-icons/hi2";
 import ContactModal from "../../../ContactModal";
+import { LeaveReviewModal } from "../../../../../components/ReputationSection";
 
 type ApiApplication = {
   id: string;
@@ -69,6 +71,7 @@ export default function OffreCandidatsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [contact, setContact] = useState<{ id: string; name: string } | null>(null);
+  const [reviewing, setReviewing] = useState<{ userId: string; applicationId: string; name: string } | null>(null);
 
   const showToast = (m: string) => {
     setToast(m);
@@ -202,6 +205,15 @@ export default function OffreCandidatsPage() {
                 >
                   <HiOutlineXCircle className="w-5 h-5" />
                 </button>
+                {a.status === "ACCEPTED" && (
+                  <button
+                    onClick={() => setReviewing({ userId: a.candidate.id, applicationId: a.id, name })}
+                    className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                    title="Laisser un avis"
+                  >
+                    <HiStar className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -214,6 +226,16 @@ export default function OffreCandidatsPage() {
           onClose={() => setContact(null)}
           candidateId={contact.id}
           candidateName={contact.name}
+        />
+      )}
+
+      {reviewing && (
+        <LeaveReviewModal
+          toUserId={reviewing.userId}
+          applicationId={reviewing.applicationId}
+          targetName={reviewing.name}
+          onClose={() => setReviewing(null)}
+          onSuccess={() => showToast("Avis envoyé !")}
         />
       )}
     </div>

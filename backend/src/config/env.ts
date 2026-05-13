@@ -60,6 +60,9 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || "",
   SMTP_FROM: process.env.SMTP_FROM || '"FreelanceIT" <noreply@freelanceit.fr>',
 
+  // Anthropic / IA
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || "",
+
   // Helpers
   get isDev() {
     return this.NODE_ENV === "development";

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiRequest } from "../../lib/api";
+import ReputationSection from "../../components/ReputationSection";
 import {
   HiOutlineMapPin,
   HiOutlineCurrencyEuro,
@@ -193,6 +194,8 @@ export default function PublicProfilePage() {
             <p className="text-sm text-gray-400 italic">Aucune formation renseignée</p>
           )}
         </section>
+
+        <ReputationSection userId={id} />
 
         {(profile.portfolioUrl || profile.linkedIn) && (
           <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">

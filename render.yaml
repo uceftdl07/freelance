@@ -91,3 +91,6 @@ services:
       - key: RESEND_API_KEY
         sync: false
 
+      - key: ANTHROPIC_API_KEY
+        sync: false
+

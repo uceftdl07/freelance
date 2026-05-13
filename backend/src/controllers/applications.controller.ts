@@ -139,6 +139,7 @@ export async function getMyApplications(req: Request, res: Response): Promise<vo
             tjm: true,
             contractType: true,
             status: true,
+            recruiterId: true,
           },
         },
       },

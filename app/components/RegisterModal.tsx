@@ -151,7 +151,7 @@ export default function RegisterModal({
               const u = JSON.parse(storedUser);
               window.location.href =
                 u.role === "ADMIN"
-                  ? "/dashboard/admin"
+                  ? "/admin"
                   : u.role === "RECRUTEUR"
                   ? "/dashboard/recruteur"
                   : "/dashboard/candidat";

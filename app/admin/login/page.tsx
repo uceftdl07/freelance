@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
           setLoading(false);
           return;
         }
-        router.push("/dashboard/admin");
+        router.push("/admin");
       }
     } else {
       setError(result.message || "Identifiants incorrects.");

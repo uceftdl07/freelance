@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { apiRequest } from "../../../lib/api";
+import { apiRequest } from "../../lib/api";
 import {
   HiMagnifyingGlass, HiTrash, HiPencilSquare, HiXMark, HiCheckCircle,
 } from "react-icons/hi2";

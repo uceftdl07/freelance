@@ -61,7 +61,7 @@ export default function LoginModal({
         const u = JSON.parse(storedUser);
         window.location.href =
           u.role === "ADMIN"
-            ? "/dashboard/admin"
+            ? "/admin"
             : u.role === "RECRUTEUR"
             ? "/dashboard/recruteur"
             : "/dashboard/candidat";
@@ -130,7 +130,7 @@ export default function LoginModal({
               const u = JSON.parse(storedUser);
               window.location.href =
                 u.role === "ADMIN"
-                  ? "/dashboard/admin"
+                  ? "/admin"
                   : u.role === "RECRUTEUR"
                   ? "/dashboard/recruteur"
                   : "/dashboard/candidat";

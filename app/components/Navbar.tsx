@@ -101,7 +101,7 @@ export default function Navbar() {
 
   const dashboardUrl =
     user?.role === "ADMIN"
-      ? "/dashboard/admin"
+      ? "/admin"
       : user?.role === "RECRUTEUR"
       ? "/dashboard/recruteur"
       : "/dashboard/candidat";

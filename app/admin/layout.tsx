@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "../../lib/AuthContext";
+import { useAuth } from "../lib/AuthContext";
 import {
   HiChartBarSquare,
   HiUsers,
@@ -14,10 +14,10 @@ import {
 } from "react-icons/hi2";
 
 const adminLinks = [
-  { label: "Statistiques", href: "/dashboard/admin", icon: HiChartBarSquare },
-  { label: "Utilisateurs", href: "/dashboard/admin/users", icon: HiUsers },
-  { label: "Communauté", href: "/dashboard/admin/communaute", icon: HiChatBubbleLeftEllipsis },
-  { label: "Blocs de contenu", href: "/dashboard/admin/blocs", icon: HiRectangleGroup },
+  { label: "Statistiques", href: "/admin", icon: HiChartBarSquare },
+  { label: "Utilisateurs", href: "/admin/users", icon: HiUsers },
+  { label: "Communauté", href: "/admin/communaute", icon: HiChatBubbleLeftEllipsis },
+  { label: "Blocs de contenu", href: "/admin/blocs", icon: HiRectangleGroup },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -26,11 +26,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   useEffect(() => {
-    if (user && user.role !== "ADMIN") router.replace("/dashboard/candidat");
+    if (user !== null && user.role !== "ADMIN") router.replace("/");
   }, [user, router]);
 
   const isActive = (href: string) =>
-    href === "/dashboard/admin" ? pathname === href : pathname.startsWith(href);
+    href === "/admin" ? pathname === href : pathname.startsWith(href);
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: "#f1f5f9" }}>
@@ -62,12 +62,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="px-3 pb-4 border-t border-white/5 pt-3 space-y-1">
-          <Link href="/dashboard/candidat" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white transition-colors">
-            ← Retour dashboard
-          </Link>
+        <div className="px-3 pb-4 border-t border-white/5 pt-3">
           <button
-            onClick={() => { logout(); router.push("/"); }}
+            onClick={() => { logout(); router.push("/admin/login"); }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
           >
             <HiArrowRightOnRectangle className="w-4 h-4" /> Déconnexion

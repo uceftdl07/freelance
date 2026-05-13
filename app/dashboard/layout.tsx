@@ -58,7 +58,6 @@ const candidatLinks = [
 const recruteurLinks = [
   { label: "Rechercher", href: "/dashboard/recruteur", icon: HiMagnifyingGlass },
   { label: "Mes Offres", href: "/dashboard/recruteur/offres", icon: HiBriefcase },
-  { label: "Assistant IA", href: "/dashboard/recruteur/ia", icon: HiSparkles },
   { label: "Candidats Sauvegardés", href: "/dashboard/recruteur/sauvegardes", icon: HiUser },
   { label: "Messagerie", href: "/dashboard/recruteur/messagerie", icon: HiChatBubbleLeftRight },
   { label: "Paramètres", href: "/dashboard/recruteur/parametres", icon: HiCog6Tooth },

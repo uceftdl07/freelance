@@ -16,6 +16,7 @@ import {
   HiOutlinePlay,
   HiCheckCircle,
   HiTrophy,
+  HiSparkles,
 } from "react-icons/hi2";
 
 interface RequiredQuiz {
@@ -188,6 +189,34 @@ export default function RecruteurOffresPage() {
   const [formTjm, setFormTjm] = useState("");
   const [formSkills, setFormSkills] = useState("");
   const [formQuizzes, setFormQuizzes] = useState<RequiredQuiz[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAiAssist = async () => {
+    if (!formTitle.trim()) return;
+    setAiLoading(true);
+    const r = await apiRequest<{ title: string; description: string; suggestedTags: string[]; tips: string[] }>(
+      "/ai/optimize-mission",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          title: formTitle,
+          description: formDesc,
+          location: formLocation,
+          tjm: formTjm,
+          tags: formSkills.split(",").map((s) => s.trim()).filter(Boolean),
+          contractType: toApiType(formType),
+        }),
+      }
+    );
+    if (r.success && r.data) {
+      setFormTitle(r.data.title || formTitle);
+      setFormDesc(r.data.description || formDesc);
+      if (r.data.suggestedTags?.length) {
+        setFormSkills(r.data.suggestedTags.join(", "));
+      }
+    }
+    setAiLoading(false);
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -519,9 +548,22 @@ export default function RecruteurOffresPage() {
               <h2 className="text-lg font-bold text-gray-900">
                 {editingOffer ? "Modifier l'offre" : "Publier une nouvelle offre"}
               </h2>
-              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer" aria-label="Fermer la fenetre">
-                <HiXMark className="w-5 h-5 text-gray-500" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAiAssist}
+                  disabled={aiLoading || !formTitle.trim()}
+                  title="Remplir avec l'IA (nécessite un titre)"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  style={{ backgroundColor: "#6366f1" }}
+                >
+                  <HiSparkles className="w-3.5 h-3.5" />
+                  {aiLoading ? "IA en cours…" : "Compléter avec l'IA"}
+                </button>
+                <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer" aria-label="Fermer la fenetre">
+                  <HiXMark className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-4">

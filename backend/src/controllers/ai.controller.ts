@@ -28,7 +28,7 @@ const optimizeProfileSchema = z.object({
 
 const optimizeMissionSchema = z.object({
   title: z.string().min(1),
-  description: z.string().min(1),
+  description: z.string().optional().default(""),
   location: z.string().optional(),
   remote: z.boolean().optional(),
   tjm: z.number().optional(),
@@ -133,7 +133,7 @@ export async function optimizeMission(req: Request, res: Response): Promise<void
     const prompt = `
 Mission IT à optimiser :
 - Titre : ${d.title}
-- Description actuelle : ${d.description}
+- Description actuelle : ${d.description || "Non renseignée"}
 - Localisation : ${d.location || "Non renseignée"}
 - Remote : ${d.remote ? "Oui" : "Non"}
 - TJM : ${d.tjm ? `${d.tjm} MAD/jour` : "Non renseigné"}

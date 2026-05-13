@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { z } from "zod";
 import { env } from "../config/env";
 
-function getClient(): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured.");
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+function getClient(): Groq {
+  if (!env.GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured.");
+  return new Groq({ apiKey: env.GROQ_API_KEY });
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────
@@ -43,17 +43,17 @@ const analyzeCvSchema = z.object({
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
-async function callClaude(prompt: string, systemPrompt: string): Promise<string> {
+async function callGroq(prompt: string, systemPrompt: string): Promise<string> {
   const client = getClient();
-  const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const completion = await client.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
     max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }],
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt },
+    ],
   });
-  const block = msg.content[0];
-  if (block.type !== "text") throw new Error("Unexpected response type from Claude.");
-  return block.text;
+  return completion.choices[0]?.message?.content ?? "";
 }
 
 // ─── Controllers ──────────────────────────────────────────────────
@@ -100,7 +100,7 @@ Tu dois répondre UNIQUEMENT en JSON valide avec ces champs :
   "suggestedSkills": ["skill1", "skill2", ...] // jusqu'à 3 compétences complémentaires suggérées
 }`;
 
-    const raw = await callClaude(prompt, systemPrompt);
+    const raw = await callGroq(prompt, systemPrompt);
     let parsed: unknown;
     try {
       // Extract JSON even if wrapped in markdown code block
@@ -151,7 +151,7 @@ Tu dois répondre UNIQUEMENT en JSON valide avec ces champs :
   "tips": "1-2 conseils pour rendre l'offre plus attractive"
 }`;
 
-    const raw = await callClaude(prompt, systemPrompt);
+    const raw = await callGroq(prompt, systemPrompt);
     let parsed: unknown;
     try {
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -198,7 +198,7 @@ Tu dois répondre UNIQUEMENT en JSON valide avec ces champs :
   "summary": "analyse globale en 2-3 phrases"
 }`;
 
-    const raw = await callClaude(prompt, systemPrompt);
+    const raw = await callGroq(prompt, systemPrompt);
     let parsed: unknown;
     try {
       const jsonMatch = raw.match(/\{[\s\S]*\}/);

@@ -356,7 +356,7 @@ export default function CandidatDashboard() {
               )}
             </div>
 
-            <Link href="/dashboard/candidat/offres" className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[#00b8d9] hover:text-[#0092ad] transition-colors w-full py-2 bg-[#00b8d9]/5 rounded-xl">
+            <Link href="/dashboard/candidat/matchs" className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-[#00b8d9] hover:text-[#0092ad] transition-colors w-full py-2 bg-[#00b8d9]/5 rounded-xl">
               Voir tous les matchs <HiArrowRight className="w-4 h-4" />
             </Link>
           </div>

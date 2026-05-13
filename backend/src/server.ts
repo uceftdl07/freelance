@@ -17,6 +17,8 @@ import quizRoutes from "./routes/quiz.routes";
 import statsRoutes from "./routes/stats.routes";
 import reviewsRoutes from "./routes/reviews.routes";
 import aiRoutes from "./routes/ai.routes";
+import adminRoutes from "./routes/admin.routes";
+import communityRoutes from "./routes/community.routes";
 import { scheduleJobAlerts, sendJobAlerts } from "./services/email-alerts";
 // ─── Create Express App ───────────────────────
 
@@ -147,6 +149,12 @@ app.use("/api/reviews", reviewsRoutes);
 
 // IA — génération de profil, mission, analyse CV
 app.use("/api/ai", aiRoutes);
+
+// Admin — stats, users, modération, content blocks
+app.use("/api/admin", adminRoutes);
+
+// Community — posts partagés
+app.use("/api/community", communityRoutes);
 
 // Manual trigger for job-alerts cron (admin/debug — protect with header secret).
 app.post("/api/admin/run-job-alerts", async (req: express.Request, res: express.Response) => {

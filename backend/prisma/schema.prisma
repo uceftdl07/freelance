@@ -39,6 +39,7 @@ model User {
   quizAttempts     QuizAttempt[]    @relation("QuizAttempts")
   reviewsGiven     Review[]         @relation("ReviewsGiven")
   reviewsReceived  Review[]         @relation("ReviewsReceived")
+  communityPosts   CommunityPost[]
 
   @@map("users")
 }
@@ -284,6 +285,47 @@ model SavedCandidate {
 
   @@unique([recruiterId, candidateId])
   @@map("saved_candidates")
+}
+
+// ─── Community Post ───────────────────────────
+
+model CommunityPost {
+  id          String   @id @default(cuid())
+  authorId    String
+  title       String
+  content     String
+  type        String   @default("ARTICLE") // ARTICLE | DOCUMENT | QUESTION
+  category    String   @default("GENERAL") // GENERAL | RETOUR_XP | CONSEIL | OUTIL | JURIDIQUE
+  fileUrl     String?
+  tags        String   @default("[]") // JSON array
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectReason String?
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([authorId])
+  @@map("community_posts")
+}
+
+// ─── Content Block (admin) ────────────────────
+
+model ContentBlock {
+  id        String   @id @default(cuid())
+  page      String   // HOME | OFFRES | COMMUNAUTE | GLOBAL
+  title     String?
+  content   String   // Markdown / HTML
+  type      String   @default("BANNER") // BANNER | ALERT | INFO | PROMO
+  isVisible Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([page, isVisible])
+  @@map("content_blocks")
 }
 
 // ─── Review / Réputation ──────────────────────

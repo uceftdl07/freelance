@@ -23,24 +23,16 @@ async function docuSealFetch<T>(method: string, path: string, body?: unknown): P
 }
 
 // ─── Upload PDF and create a DocuSeal template ────────────────────
+// DocuSeal /templates/pdf expects JSON with base64-encoded file content.
 
 async function createTemplateFromPdf(name: string, pdfBuffer: Buffer): Promise<number> {
-  const blob = new Blob([pdfBuffer], { type: "application/pdf" });
-  const form = new FormData();
-  form.append("file", blob, "contrat.pdf");
-  form.append("name", name);
+  const base64 = `data:application/pdf;base64,${pdfBuffer.toString("base64")}`;
 
-  const res = await fetch(`${BASE_URL}/templates/pdf`, {
-    method: "POST",
-    headers: { "X-Auth-Token": env.DOCUSEAL_API_KEY },
-    body: form,
+  const tpl = await docuSealFetch<{ id: number }>("POST", "/templates/pdf", {
+    name,
+    documents: [{ name: "contrat.pdf", file: base64 }],
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`DocuSeal create template → ${res.status}: ${txt}`);
-  }
-  const tpl = await res.json() as { id: number };
   return tpl.id;
 }
 

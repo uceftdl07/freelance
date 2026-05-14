@@ -1,0 +1,4 @@
+ALTER TABLE "contracts" ADD COLUMN IF NOT EXISTS "pdfUrl" TEXT;
+ALTER TABLE "contracts" ADD COLUMN IF NOT EXISTS "signatureRequestId" TEXT;
+ALTER TABLE "contracts" ADD COLUMN IF NOT EXISTS "signerToken" TEXT;
+ALTER TABLE "contracts" ADD COLUMN IF NOT EXISTS "signingUrl" TEXT;

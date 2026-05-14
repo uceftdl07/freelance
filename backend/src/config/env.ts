@@ -63,6 +63,10 @@ export const env = {
   // Groq / IA (gratuit)
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
 
+  // DocuSeal — signature électronique (gratuit)
+  DOCUSEAL_API_KEY: process.env.DOCUSEAL_API_KEY || "",
+  DOCUSEAL_WEBHOOK_SECRET: process.env.DOCUSEAL_WEBHOOK_SECRET || "",
+
   // Helpers
   get isDev() {
     return this.NODE_ENV === "development";

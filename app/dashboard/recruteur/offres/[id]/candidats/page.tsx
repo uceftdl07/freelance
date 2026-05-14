@@ -75,27 +75,27 @@ export default function OffreCandidatsPage() {
   const [contact, setContact] = useState<{ id: string; name: string } | null>(null);
   const [reviewing, setReviewing] = useState<{ userId: string; applicationId: string; name: string } | null>(null);
   const [contracting, setContracting] = useState<{ applicationId: string; name: string; defaultTitle: string } | null>(null);
-  const [contractForm, setContractForm] = useState({ title: "", tjm: "", startDate: "", duration: "", clauses: "" });
+  const [contractForm, setContractForm] = useState({ title: "", tjm: "", startDate: "", duration: "" });
+  const [contractPdf, setContractPdf] = useState<File | null>(null);
   const [contractSaving, setContractSaving] = useState(false);
 
   const handleSendContract = async () => {
-    if (!contracting || !contractForm.title.trim()) return;
+    if (!contracting || !contractForm.title.trim() || !contractPdf) return;
     setContractSaving(true);
-    const r = await apiRequest("/contracts", {
-      method: "POST",
-      body: JSON.stringify({
-        applicationId: contracting.applicationId,
-        title: contractForm.title,
-        tjm: contractForm.tjm ? Number(contractForm.tjm) : null,
-        startDate: contractForm.startDate || null,
-        duration: contractForm.duration || null,
-        clauses: contractForm.clauses || null,
-      }),
-    });
+    const form = new FormData();
+    form.append("applicationId", contracting.applicationId);
+    form.append("title", contractForm.title);
+    if (contractForm.tjm) form.append("tjm", contractForm.tjm);
+    if (contractForm.startDate) form.append("startDate", contractForm.startDate);
+    if (contractForm.duration) form.append("duration", contractForm.duration);
+    form.append("contract", contractPdf);
+
+    const r = await apiRequest("/contracts", { method: "POST", body: form });
     setContractSaving(false);
     if (r.success) {
-      showToast("Contrat envoyé au candidat !");
+      showToast("Contrat PDF envoyé au candidat !");
       setContracting(null);
+      setContractPdf(null);
     } else {
       showToast(r.message || "Erreur lors de l'envoi du contrat.");
     }
@@ -237,7 +237,8 @@ export default function OffreCandidatsPage() {
                   <>
                     <button
                       onClick={() => {
-                        setContractForm({ title: "", tjm: "", startDate: "", duration: "", clauses: "" });
+                        setContractForm({ title: "", tjm: "", startDate: "", duration: "" });
+                        setContractPdf(null);
                         setContracting({ applicationId: a.id, name, defaultTitle: "" });
                       }}
                       className="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -339,27 +340,35 @@ export default function OffreCandidatsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-600 mb-1">Clauses spécifiques (optionnel)</label>
-              <textarea
-                value={contractForm.clauses}
-                onChange={(e) => setContractForm((f) => ({ ...f, clauses: e.target.value }))}
-                rows={3}
-                placeholder="Conditions particulières, NDA, télétravail…"
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 resize-none"
-              />
+              <label className="block text-xs font-bold text-gray-600 mb-1">
+                Fichier contrat PDF <span className="text-red-400">*</span>
+              </label>
+              <label className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl border-2 border-dashed text-sm cursor-pointer transition-colors ${contractPdf ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-400 hover:border-indigo-300"}`}>
+                <HiDocumentText className="w-5 h-5 flex-shrink-0" />
+                {contractPdf ? contractPdf.name : "Choisir un fichier PDF…"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => setContractPdf(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {contractPdf && (
+                <p className="text-[11px] text-gray-400 mt-1">{(contractPdf.size / 1024).toFixed(0)} Ko</p>
+              )}
             </div>
 
             <div className="bg-indigo-50 rounded-xl p-3 text-xs text-indigo-700">
-              En envoyant ce contrat, vous le signez électroniquement. Le candidat devra le signer pour le finaliser.
+              Le contrat PDF sera envoyé au candidat pour signature électronique via DocuSeal.
             </div>
 
             <button
               onClick={handleSendContract}
-              disabled={contractSaving || !contractForm.title.trim()}
+              disabled={contractSaving || !contractForm.title.trim() || !contractPdf}
               className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 cursor-pointer"
               style={{ backgroundColor: "#6366f1" }}
             >
-              {contractSaving ? "Envoi…" : "Signer & envoyer le contrat"}
+              {contractSaving ? "Envoi…" : "Envoyer le contrat PDF"}
             </button>
           </div>
         </div>

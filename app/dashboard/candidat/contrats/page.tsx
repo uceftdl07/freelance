@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiRequest } from "../../../lib/api";
-import { HiDocumentText, HiCheckCircle, HiXCircle, HiClock, HiExclamationCircle } from "react-icons/hi2";
+import { HiDocumentText, HiCheckCircle, HiXCircle, HiArrowTopRightOnSquare, HiPencilSquare } from "react-icons/hi2";
 
 interface Contract {
   id: string;
@@ -10,8 +10,9 @@ interface Contract {
   tjm: number | null;
   startDate: string | null;
   duration: string | null;
-  clauses: string | null;
   status: string;
+  pdfUrl: string | null;
+  signingUrl: string | null;
   recruiterSignedAt: string;
   candidateSignedAt: string | null;
   createdAt: string;
@@ -23,10 +24,10 @@ interface Contract {
 }
 
 const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: "En attente de signature", color: "#f59e0b", bg: "#fef3c7" },
-  SIGNED:    { label: "Signé",                   color: "#10b981", bg: "#d1fae5" },
-  REFUSED:   { label: "Refusé",                  color: "#ef4444", bg: "#fee2e2" },
-  CANCELLED: { label: "Annulé",                  color: "#6b7280", bg: "#f3f4f6" },
+  PENDING:   { label: "En attente de votre signature", color: "#f59e0b", bg: "#fef3c7" },
+  SIGNED:    { label: "Signé",                         color: "#10b981", bg: "#d1fae5" },
+  REFUSED:   { label: "Refusé",                        color: "#ef4444", bg: "#fee2e2" },
+  CANCELLED: { label: "Annulé",                        color: "#6b7280", bg: "#f3f4f6" },
 };
 
 export default function CandidatContratsPage() {
@@ -45,17 +46,9 @@ export default function CandidatContratsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleSign = async (id: string) => {
-    const r = await apiRequest(`/contracts/${id}/sign`, { method: "PATCH" });
-    if (r.success) {
-      setContracts((prev) => prev.map((c) => c.id === id ? { ...c, status: "SIGNED", candidateSignedAt: new Date().toISOString() } : c));
-      showToast("Contrat signé avec succès !");
-    } else showToast(r.message || "Erreur.");
-  };
-
-  const handleRefuse = async (id: string) => {
+  const handleCancel = async (id: string) => {
     if (!confirm("Refuser ce contrat ?")) return;
-    const r = await apiRequest(`/contracts/${id}/refuse`, { method: "PATCH" });
+    const r = await apiRequest(`/contracts/${id}/cancel`, { method: "PATCH" });
     if (r.success) {
       setContracts((prev) => prev.map((c) => c.id === id ? { ...c, status: "REFUSED" } : c));
       showToast("Contrat refusé.");
@@ -73,7 +66,7 @@ export default function CandidatContratsPage() {
 
       <div>
         <h1 className="text-xl font-extrabold text-gray-900">Mes contrats</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Contrats proposés par les recruteurs.</p>
+        <p className="text-sm text-gray-500 mt-0.5">Contrats PDF proposés par les recruteurs.</p>
       </div>
 
       {loading ? (
@@ -121,45 +114,61 @@ export default function CandidatContratsPage() {
 
                   {isOpen && (
                     <div className="mt-4 space-y-3 border-t border-gray-50 pt-4">
-                      {c.clauses && (
-                        <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 leading-relaxed">
-                          <p className="font-bold text-gray-700 mb-1">Clauses spécifiques</p>
-                          <p className="whitespace-pre-line">{c.clauses}</p>
-                        </div>
+                      {c.pdfUrl && (
+                        <a
+                          href={c.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                        >
+                          <HiDocumentText className="w-4 h-4" /> Lire le contrat PDF
+                          <HiArrowTopRightOnSquare className="w-3.5 h-3.5" />
+                        </a>
                       )}
 
-                      <div className="flex gap-2 text-xs text-gray-400">
-                        <HiCheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                        Signé par le recruteur le {new Date(c.recruiterSignedAt).toLocaleDateString("fr-FR")}
-                      </div>
-                      {c.candidateSignedAt && (
-                        <div className="flex gap-2 text-xs text-emerald-600">
-                          <HiCheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                          Signé par vous le {new Date(c.candidateSignedAt).toLocaleDateString("fr-FR")}
+                      <div className="flex flex-col gap-2 text-xs text-gray-400">
+                        <div className="flex gap-2">
+                          <HiCheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          Envoyé par le recruteur le {new Date(c.recruiterSignedAt).toLocaleDateString("fr-FR")}
                         </div>
-                      )}
+                        {c.candidateSignedAt && (
+                          <div className="flex gap-2 text-emerald-600">
+                            <HiCheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            Signé par vous le {new Date(c.candidateSignedAt).toLocaleDateString("fr-FR")}
+                          </div>
+                        )}
+                      </div>
 
                       {c.status === "PENDING" && (
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex flex-col gap-2 pt-1">
+                          {c.signingUrl ? (
+                            <a
+                              href={c.signingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-colors"
+                              style={{ backgroundColor: "#10b981" }}
+                            >
+                              <HiPencilSquare className="w-4 h-4" /> Signer électroniquement
+                              <HiArrowTopRightOnSquare className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-xl">
+                              Le lien de signature est en cours de génération. Veuillez revenir dans quelques instants.
+                            </p>
+                          )}
                           <button
-                            onClick={() => handleSign(c.id)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                            style={{ backgroundColor: "#10b981" }}
+                            onClick={() => handleCancel(c.id)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer w-fit"
                           >
-                            <HiCheckCircle className="w-4 h-4" /> Signer le contrat
-                          </button>
-                          <button
-                            onClick={() => handleRefuse(c.id)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
-                          >
-                            <HiXCircle className="w-4 h-4" /> Refuser
+                            <HiXCircle className="w-4 h-4" /> Refuser le contrat
                           </button>
                         </div>
                       )}
 
                       {c.status === "SIGNED" && (
                         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 bg-emerald-50 px-4 py-2.5 rounded-xl">
-                          <HiCheckCircle className="w-5 h-5" /> Contrat pleinement signé — mission confirmée
+                          <HiCheckCircle className="w-5 h-5" /> Contrat signé — mission démarrée
                         </div>
                       )}
                     </div>

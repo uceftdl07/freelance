@@ -368,6 +368,10 @@ model Contract {
   duration          String?
   clauses           String?   @db.Text
   status            String    @default("PENDING") // PENDING | SIGNED | REFUSED | CANCELLED
+  pdfUrl            String?   // Supabase storage URL for the contract PDF
+  signatureRequestId String?  // DocuSeal submission ID
+  signerToken       String?   // DocuSeal signer slug
+  signingUrl        String?   @db.Text // Signing URL for candidate (DocuSeal embed_src)
   recruiterSignedAt DateTime  @default(now())
   candidateSignedAt DateTime?
   createdAt         DateTime  @default(now())

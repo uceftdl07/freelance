@@ -178,15 +178,11 @@ export default function DashboardLayout({
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-6 h-16 border-b border-white/5">
           <Link href="/" className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #00b8d9, #00a3c4)" }}
-            >
-              <span className="text-white font-black text-base leading-none">FI</span>
-            </div>
-            <span className="text-white font-bold text-xl">
-              Freelance<span style={{ color: "#00b8d9" }}>IT</span>
-            </span>
+            <img
+              src="/logo.png"
+              alt="FreelanceIT"
+              className="h-10 w-auto object-contain"
+            />
           </Link>
           <button
             className="ml-auto lg:hidden text-gray-400 hover:text-white cursor-pointer"

@@ -44,8 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen flex" style={{ backgroundColor: "#f1f5f9" }}>
       <aside className="w-60 flex-shrink-0 flex flex-col" style={{ backgroundColor: "#0a1628", minHeight: "100vh" }}>
         <div className="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
-          <HiShieldCheck className="w-6 h-6 text-[#00b8d9]" />
-          <span className="text-white font-bold text-base">Admin</span>
+          <img src="/logo.png" alt="FreelanceIT" className="h-8 w-auto object-contain" />
           <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">ADMIN</span>
         </div>
 

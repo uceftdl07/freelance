@@ -27,9 +27,9 @@
   html.dark {
     color-scheme: dark;
 
-    /* Remap Tailwind v4 gray scale */
+    /* Remap Tailwind v4 white + gray scale */
     --color-white: #1e293b;
-    --color-gray-50: #0f172a;
+    --color-gray-50:  #0f172a;
     --color-gray-100: #1e293b;
     --color-gray-200: #334155;
     --color-gray-300: #475569;
@@ -41,16 +41,43 @@
     --color-gray-900: #f8fafc;
     --color-gray-950: #ffffff;
 
-    /* Soften blues used in notification highlights */
-    --color-blue-50: #172554;
-    --color-blue-100: #1e3a8a;
-    --color-indigo-50: #1e1b4b;
+    /* Remap slate scale (used in layout bg-slate-*) */
+    --color-slate-50:  #0f172a;
+    --color-slate-100: #1e293b;
+    --color-slate-200: #334155;
+    --color-slate-300: #475569;
+    --color-slate-400: #64748b;
+    --color-slate-500: #94a3b8;
+    --color-slate-600: #cbd5e1;
+    --color-slate-700: #e2e8f0;
+    --color-slate-800: #f1f5f9;
+    --color-slate-900: #f8fafc;
+    --color-slate-950: #ffffff;
+
+    /* Remap zinc/neutral (used in some components) */
+    --color-zinc-50:  #0f172a;
+    --color-zinc-100: #1e293b;
+    --color-zinc-200: #334155;
+    --color-zinc-300: #475569;
+    --color-zinc-500: #94a3b8;
+    --color-zinc-600: #cbd5e1;
+    --color-zinc-700: #e2e8f0;
+    --color-zinc-900: #f8fafc;
+
+    /* Blues / indigo in highlights & notifications */
+    --color-blue-50:    #172554;
+    --color-blue-100:   #1e3a8a;
+    --color-indigo-50:  #1e1b4b;
     --color-indigo-100: #312e81;
 
-    /* Soften amber/emerald/rose used in badges */
-    --color-amber-50: #1c1400;
+    /* Semantic colours used in badges */
+    --color-amber-50:   #1c1400;
+    --color-amber-100:  #2d1f00;
     --color-emerald-50: #022c22;
-    --color-rose-50: #1f0000;
+    --color-emerald-100:#023320;
+    --color-red-50:     #1f0000;
+    --color-red-100:    #2d0000;
+    --color-rose-50:    #1f0000;
   }
 
   html.dark body {
@@ -62,6 +89,23 @@
   html.dark .text-\[\#0a1628\] { color: #f1f5f9 !important; }
   html.dark .text-\[\#111827\] { color: #f1f5f9 !important; }
   html.dark .text-\[\#1e293b\] { color: #e2e8f0 !important; }
+
+  /* Fix hardcoded light backgrounds used as inline styles in layout & components */
+  html.dark [style*="background-color: rgb(248, 250, 252)"],
+  html.dark [style*="background-color: #f8fafc"] { background-color: #0f172a !important; }
+
+  html.dark [style*="background-color: rgb(241, 245, 249)"],
+  html.dark [style*="background-color: #f1f5f9"] { background-color: #1e293b !important; }
+
+  html.dark [style*="background-color: rgb(255, 255, 255)"],
+  html.dark [style*="background-color: #ffffff"],
+  html.dark [style*="background-color: white"]   { background-color: #1e293b !important; }
+
+  /* Card/modal shadows in dark mode */
+  html.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.4); }
+  html.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); }
+  html.dark .shadow-xl  { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.6); }
+  html.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
 
   /* Inputs and selects */
   html.dark input,

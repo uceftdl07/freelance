@@ -70,6 +70,14 @@ export async function initiateSignature(
           role: "First Party",
           name: `${signer.firstName} ${signer.lastName}`.trim() || "Signataire",
           email: signer.email,
+          fields: [
+            {
+              name: "Signature",
+              type: "signature",
+              required: true,
+              areas: [{ x: 0.1, y: 0.82, w: 0.35, h: 0.07, page: 1 }],
+            },
+          ],
         },
       ],
     }
